@@ -7,9 +7,13 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   // Verifica se a service role key foi configurada
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY.startsWith("cole-aqui")) {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY.startsWith("cole-aqui")
+  ) {
     return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY não configurada. Veja o README." },
+      { error: "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY." },
       { status: 500 }
     );
   }
