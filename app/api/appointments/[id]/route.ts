@@ -31,43 +31,58 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { employeeId } = reassignSchema.parse(body);
+    const parsed = patchSchema.parse(body);
 
-    // Validate new employee belongs to same salon and is active
-    const employee = await db.employee.findFirst({
-      where: { id: employeeId, salonId: session.user.salonId, isActive: true },
-    });
-    if (!employee) {
-      return NextResponse.json({ error: "Profissional não encontrado ou inativo" }, { status: 404 });
-    }
+    if ("employeeId" in parsed) {
+      const { employeeId } = parsed;
 
-    // Conflict check: new employee must be free during this appointment's timerange
-    // (excluding the current appointment itself)
-    const conflict = await db.appointment.findFirst({
-      where: {
-        id:         { not: params.id },
-        employeeId,
-        salonId:    session.user.salonId,
-        status:     { notIn: ["CANCELLED", "NO_SHOW"] },
-        OR: [{
-          startsAt: { lt: appointment.endsAt },
-          endsAt:   { gt: appointment.startsAt },
-        }],
-      },
-    });
+      const employee = await db.employee.findFirst({
+        where: { id: employeeId, salonId: session.user.salonId, isActive: true },
+      });
+      if (!employee) {
+        return NextResponse.json({ error: "Profissional não encontrado ou inativo" }, { status: 404 });
+      }
 
-    if (conflict) {
-      return NextResponse.json(
-        { error: `${employee.name} já tem um agendamento neste horário.` },
-        { status: 409 }
-      );
+      const conflict = await db.appointment.findFirst({
+        where: {
+          id: { not: params.id },
+          employeeId,
+          salonId: session.user.salonId,
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+          OR: [
+            {
+              startsAt: { lt: appointment.endsAt },
+              endsAt: { gt: appointment.startsAt },
+            },
+          ],
+        },
+      });
+
+      if (conflict) {
+        return NextResponse.json(
+          { error: `${employee.name} já tem um agendamento neste horário.` },
+          { status: 409 }
+        );
+      }
+
+      const updated = await db.appointment.update({
+        where: { id: params.id },
+        data: { employeeId },
+        include: {
+          client: { select: { id: true, name: true, phone: true } },
+          employee: { select: { id: true, name: true, color: true, isActive: true } },
+          services: { include: { service: { select: { name: true } } } },
+        },
+      });
+
+      return NextResponse.json(updated);
     }
 
     const updated = await db.appointment.update({
       where: { id: params.id },
-      data:  { employeeId },
+      data: { status: parsed.status },
       include: {
-        client:   { select: { id: true, name: true, phone: true } },
+        client: { select: { id: true, name: true, phone: true } },
         employee: { select: { id: true, name: true, color: true, isActive: true } },
         services: { include: { service: { select: { name: true } } } },
       },
