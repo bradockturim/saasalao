@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Scissors, MapPin, Phone } from "lucide-react";
 import { HairSelector, HairProfile } from "@/components/booking/hair-selector";
 import { ServiceCatalog } from "@/components/booking/service-catalog";
@@ -77,7 +78,14 @@ export function BookingHome({ salon, services }: Props) {
         <div className="max-w-lg mx-auto px-4 py-6 flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-primary-600 flex items-center justify-center shrink-0">
             {salon.logoUrl ? (
-              <img src={salon.logoUrl} alt={salon.name} className="w-14 h-14 rounded-2xl object-cover" />
+              <Image
+                src={salon.logoUrl}
+                alt={salon.name}
+                width={56}
+                height={56}
+                className="w-14 h-14 rounded-2xl object-cover"
+                priority
+              />
             ) : (
               <Scissors className="w-7 h-7 text-white" />
             )}
