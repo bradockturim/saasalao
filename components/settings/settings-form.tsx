@@ -18,6 +18,7 @@ type Salon = {
   state: string | null;
   whatsappNumber: string | null;
   whatsappNotifyNew: boolean;
+  cancellationHours: number;
   workingHours: {
     dayOfWeek: number;
     openTime: string;
@@ -25,6 +26,79 @@ type Salon = {
     isOpen: boolean;
   }[];
 };
+
+// ─── Cancellation settings card ──────────────────────────────────────────────
+
+function CancellationCard({
+  salonId,
+  initialHours,
+}: {
+  salonId:      string;
+  initialHours: number;
+}) {
+  const [hours,   setHours]   = useState(initialHours);
+  const [loading, setLoading] = useState(false);
+  const [saved,   setSaved]   = useState(false);
+  const [error,   setError]   = useState("");
+
+  async function handleSave() {
+    if (hours < 1 || hours > 72) { setError("Entre 1 e 72 horas."); return; }
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/salons/${salonId}`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ cancellationHours: hours }),
+      });
+      if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 3000); }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="font-semibold text-gray-900">Autoatendimento da Cliente</h2>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Configurações da área &ldquo;Meus Agendamentos&rdquo; no portal público.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Antecedência mínima para cancelamento
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min={1}
+              max={72}
+              value={hours}
+              onChange={(e) => setHours(Number(e.target.value))}
+              className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm
+                focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            <span className="text-sm text-gray-600">horas antes do atendimento</span>
+          </div>
+          <p className="text-xs text-gray-400">
+            A cliente só poderá cancelar pelo portal até {hours}h antes do horário marcado.
+          </p>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+        <div className="flex items-center gap-3">
+          <Button size="sm" onClick={handleSave} loading={loading}>
+            Salvar
+          </Button>
+          {saved && <span className="text-sm text-green-600 font-medium">Salvo!</span>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main form ────────────────────────────────────────────────────────────────
 
 export function SettingsForm({ salon }: { salon: Salon }) {
   const [form, setForm] = useState({
@@ -122,6 +196,9 @@ export function SettingsForm({ salon }: { salon: Salon }) {
       </Card>
 
       <WorkingHoursForm initialHours={salon.workingHours} />
+
+      {/* Client self-service */}
+      <CancellationCard salonId={salon.id} initialHours={salon.cancellationHours} />
 
       <WhatsAppCard
         salonId={salon.id}

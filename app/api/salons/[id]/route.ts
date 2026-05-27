@@ -13,6 +13,8 @@ const updateSchema = z.object({
   // WhatsApp
   whatsappNumber:    z.string().optional().nullable(),
   whatsappNotifyNew: z.boolean().optional(),
+  // Client self-service
+  cancellationHours: z.number().int().min(1).max(72).optional(),
 });
 
 export async function PATCH(

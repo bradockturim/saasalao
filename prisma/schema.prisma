@@ -31,6 +31,9 @@ model Salon {
   whatsappNumber    String?
   whatsappNotifyNew Boolean @default(false)
 
+  // Client self-service
+  cancellationHours Int     @default(24) // min hours before appointment to allow client cancellation
+
   users            User[]
   employees        Employee[]
   services         Service[]

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Clock, ChevronRight, Tag, Pencil } from "lucide-react";
+import { Clock, ChevronRight, Tag, Pencil, MessageSquarePlus } from "lucide-react";
 import type { HairProfile } from "@/components/booking/hair-selector";
 import { HAIR_ICONS, HAIR_LENGTH_LABEL, HAIR_TYPE_LABEL } from "@/components/booking/hair-icons";
+import { CustomRequestModal } from "@/components/booking/custom-request-modal";
 
 type Pricing = { hairLength: "SHORT" | "MEDIUM" | "LONG"; price: number; duration: number | null };
 
@@ -21,9 +22,9 @@ type Service = {
 };
 
 interface Props {
-  services: Service[];
-  salonSlug: string;
-  hairProfile: HairProfile;
+  services:        Service[];
+  salonSlug:       string;
+  hairProfile:     HairProfile;
   onChangeProfile: () => void;
 }
 
@@ -44,7 +45,8 @@ function priceRange(service: Service) {
 }
 
 export function ServiceCatalog({ services, salonSlug, hairProfile, onChangeProfile }: Props) {
-  const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [activeCategory,    setActiveCategory]    = useState<string>("all");
+  const [showCustomRequest, setShowCustomRequest] = useState(false);
 
   const categories = [
     { id: "all", name: "Todos" },
@@ -172,6 +174,34 @@ export function ServiceCatalog({ services, salonSlug, hairProfile, onChangeProfi
         <div className="py-12 text-center text-gray-500 text-sm">
           Nenhum serviço nesta categoria.
         </div>
+      )}
+
+      {/* Custom request CTA */}
+      <button
+        onClick={() => setShowCustomRequest(true)}
+        className="w-full flex items-center gap-3 rounded-2xl border-2 border-dashed border-gray-200
+          bg-white px-5 py-4 text-left hover:border-primary-300 hover:bg-primary-50/40 transition-all group"
+      >
+        <div className="w-9 h-9 rounded-xl bg-primary-100 flex items-center justify-center shrink-0
+          group-hover:bg-primary-200 transition-colors">
+          <MessageSquarePlus className="w-4 h-4 text-primary-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-800 group-hover:text-primary-700 transition-colors">
+            Agendamento Personalizado
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Não encontrou o horário ideal? Envie sua preferência.
+          </p>
+        </div>
+        <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-primary-500 transition-colors shrink-0" />
+      </button>
+
+      {showCustomRequest && (
+        <CustomRequestModal
+          salonSlug={salonSlug}
+          onClose={() => setShowCustomRequest(false)}
+        />
       )}
     </div>
   );

@@ -21,6 +21,7 @@ export default async function SettingsPage() {
       state: true,
       whatsappNumber: true,
       whatsappNotifyNew: true,
+      cancellationHours: true,
       workingHours: { orderBy: { dayOfWeek: "asc" } },
     },
   });

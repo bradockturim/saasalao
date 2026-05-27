@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Scissors, MapPin, Phone } from "lucide-react";
+import Link from "next/link";
+import { Scissors, MapPin, Phone, CalendarDays } from "lucide-react";
 import { HairSelector, HairProfile } from "@/components/booking/hair-selector";
 import { ServiceCatalog } from "@/components/booking/service-catalog";
 import { cn } from "@/lib/utils";
@@ -107,6 +108,17 @@ export function BookingHome({ salon, services }: Props) {
               )}
             </div>
           </div>
+
+          {/* Meus Agendamentos link */}
+          <Link
+            href={`/book/${salon.slug}/minha-conta`}
+            className="shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white
+              px-3 py-2 text-xs font-medium text-gray-600 hover:border-primary-300 hover:text-primary-700
+              hover:bg-primary-50 transition-colors"
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            Meus agendamentos
+          </Link>
         </div>
 
         {/* Working hours ribbon */}

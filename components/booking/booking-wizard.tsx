@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Clock, Tag, CalendarCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Tag, CalendarCheck, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StepEmployee, Employee } from "@/components/booking/step-employee";
 import { StepDate } from "@/components/booking/step-date";
 import { StepSlots } from "@/components/booking/step-slots";
 import { StepInfo } from "@/components/booking/step-info";
+import { HairPickerInline } from "@/components/booking/hair-picker-inline";
 import {
   HAIR_ICONS,
   HAIR_LENGTH_LABEL,
+  HAIR_TYPE_LABEL,
   HairType,
   HairLength,
 } from "@/components/booking/hair-icons";
@@ -159,12 +161,20 @@ export function BookingWizard({ salon, service, automationRef = null }: Props) {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const topRef = useRef<HTMLDivElement>(null);
 
+  // Feature 3: temporary hair profile (not saved to localStorage)
+  const [showHairPicker, setShowHairPicker] = useState(false);
+  // Track the profile loaded from storage so we can show "temporary" badge
+  const storedProfileRef = useRef<typeof state.hairProfile>(null);
+
   // Load employees + working hours + hair profile
   useEffect(() => {
     const stored = localStorage.getItem(`hairProfile_${salon.slug}`);
     if (stored) {
-      try { dispatch({ type: "SET_HAIR_PROFILE", profile: JSON.parse(stored) }); }
-      catch { /* ignore */ }
+      try {
+        const parsed = JSON.parse(stored);
+        dispatch({ type: "SET_HAIR_PROFILE", profile: parsed });
+        storedProfileRef.current = parsed;
+      } catch { /* ignore */ }
     }
 
     Promise.all([
@@ -355,33 +365,102 @@ export function BookingWizard({ salon, service, automationRef = null }: Props) {
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
         {/* Service summary card */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-4 flex items-center gap-4">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
-            style={{ backgroundColor: service.category?.color ?? "#8B5CF6" }}
-          >
-            {service.name[0]}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 truncate">{service.name}</p>
-            <p className="text-sm text-gray-500">
-              {duration} min · {formatCurrency(price)}
-              {state.hairProfile && service.hasPricingByLength && (
-                <span className="ml-2 text-xs text-primary-600">
-                  ({HAIR_LENGTH_LABEL[state.hairProfile.length]})
-                </span>
+        {(() => {
+          // Detect if hair profile was temporarily changed
+          const stored   = storedProfileRef.current;
+          const current  = state.hairProfile;
+          const isTempHair = current && stored &&
+            (current.type !== stored.type || current.length !== stored.length);
+
+          return (
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+              {/* Main row */}
+              <div className="p-4 flex items-center gap-4">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  style={{ backgroundColor: service.category?.color ?? "#8B5CF6" }}
+                >
+                  {service.name[0]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 truncate">{service.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm text-gray-500">
+                      {duration} min · {formatCurrency(price)}
+                    </p>
+                    {isTempHair && (
+                      <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full font-medium">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        Preço temporário
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Hair icon + toggle */}
+                {service.hasPricingByLength && current && (
+                  <button
+                    onClick={() => setShowHairPicker((v) => !v)}
+                    className="shrink-0 flex flex-col items-center gap-0.5 group"
+                    title="Alterar perfil capilar para simular preço"
+                  >
+                    {(() => {
+                      const Icon = HAIR_ICONS[current.type][current.length];
+                      return (
+                        <Icon className={cn(
+                          "h-8 w-8 transition-colors",
+                          isTempHair ? "text-amber-500" : "text-primary-500 group-hover:text-primary-700"
+                        )} />
+                      );
+                    })()}
+                    <span className="text-[9px] text-gray-400 group-hover:text-primary-500 flex items-center gap-0.5">
+                      {HAIR_LENGTH_LABEL[current.length]}
+                      {showHairPicker
+                        ? <ChevronUp className="w-2.5 h-2.5" />
+                        : <ChevronDown className="w-2.5 h-2.5" />}
+                    </span>
+                  </button>
+                )}
+
+                {/* Non-variable price: just show icon */}
+                {!service.hasPricingByLength && current && (
+                  <div className="shrink-0">
+                    {(() => {
+                      const Icon = HAIR_ICONS[current.type][current.length];
+                      return <Icon className="h-8 w-8 text-primary-500" />;
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              {/* Inline hair picker (only for variable pricing) */}
+              {service.hasPricingByLength && showHairPicker && current && (
+                <div className="border-t border-gray-100 px-4 pb-4">
+                  <p className="text-xs text-gray-400 pt-3 mb-2">
+                    Simule o preço para outro tipo de cabelo — não altera seu perfil salvo.
+                  </p>
+                  <HairPickerInline
+                    current={current}
+                    onChange={(profile) => {
+                      dispatch({ type: "SET_HAIR_PROFILE", profile });
+                    }}
+                  />
+                  {isTempHair && (
+                    <button
+                      onClick={() => {
+                        if (stored) dispatch({ type: "SET_HAIR_PROFILE", profile: stored });
+                        setShowHairPicker(false);
+                      }}
+                      className="mt-3 text-xs text-primary-600 hover:underline"
+                    >
+                      Restaurar perfil original ({HAIR_TYPE_LABEL[stored!.type]} · {HAIR_LENGTH_LABEL[stored!.length]})
+                    </button>
+                  )}
+                </div>
               )}
-            </p>
-          </div>
-          {state.hairProfile && (
-            <div className="shrink-0">
-              {(() => {
-                const Icon = HAIR_ICONS[state.hairProfile.type][state.hairProfile.length];
-                return <Icon className="h-8 w-8 text-primary-500" />;
-              })()}
             </div>
-          )}
-        </div>
+          );
+        })()}
 
         {/* Step heading */}
         <h2 className="text-lg font-bold text-gray-900">{meta.title}</h2>
