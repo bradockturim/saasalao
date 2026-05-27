@@ -11,19 +11,21 @@ import {
   Settings,
   UserCircle,
   UserCheck,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/appointments", label: "Agendamentos", icon: Calendar },
-  { href: "/dashboard/clients", label: "Clientes", icon: Users },
-  { href: "/dashboard/services", label: "Serviços", icon: Scissors },
+  { href: "/dashboard",               label: "Dashboard",     icon: LayoutDashboard },
+  { href: "/dashboard/appointments",  label: "Agendamentos",  icon: Calendar },
+  { href: "/dashboard/clients",       label: "Clientes",      icon: Users },
+  { href: "/dashboard/services",      label: "Serviços",      icon: Scissors },
   { href: "/dashboard/profissionais", label: "Profissionais", icon: UserCheck },
 ];
 
 const adminItems = [
-  { href: "/dashboard/settings", label: "Configurações", icon: Settings, roles: ["OWNER", "ADMIN"] },
+  { href: "/dashboard/automacoes", label: "Automações",    icon: Zap,      roles: ["OWNER", "ADMIN"] },
+  { href: "/dashboard/settings",   label: "Configurações", icon: Settings, roles: ["OWNER", "ADMIN"] },
 ];
 
 interface SidebarProps {

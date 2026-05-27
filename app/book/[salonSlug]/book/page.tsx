@@ -3,8 +3,8 @@ import { db } from "@/lib/db";
 import { BookingWizard } from "@/components/booking/booking-wizard";
 
 interface Props {
-  params: { salonSlug: string };
-  searchParams: { serviceId?: string };
+  params:       { salonSlug: string };
+  searchParams: { serviceId?: string; ref?: string };
 }
 
 export default async function BookPage({ params, searchParams }: Props) {
@@ -31,5 +31,11 @@ export default async function BookPage({ params, searchParams }: Props) {
   });
   if (!service) notFound();
 
-  return <BookingWizard salon={salon} service={service} />;
+  return (
+    <BookingWizard
+      salon={salon}
+      service={service}
+      automationRef={searchParams.ref ?? null}
+    />
+  );
 }

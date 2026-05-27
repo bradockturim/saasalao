@@ -151,9 +151,10 @@ function resolveServiceInfo(service: Service, hairLength: HairLength | undefined
 interface Props {
   salon: Salon;
   service: Service;
+  automationRef?: string | null;
 }
 
-export function BookingWizard({ salon, service }: Props) {
+export function BookingWizard({ salon, service, automationRef = null }: Props) {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const topRef = useRef<HTMLDivElement>(null);
@@ -202,13 +203,14 @@ export function BookingWizard({ salon, service }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serviceId:  service.id,
-          employeeId: state.employeeId, // "any" or real ID
-          date:       state.date,
-          time:       state.time,
-          hairLength: state.hairProfile?.length ?? null,
-          hairType:   state.hairProfile?.type   ?? null,
-          notes:      state.client.notes || null,
+          serviceId:     service.id,
+          employeeId:    state.employeeId, // "any" or real ID
+          date:          state.date,
+          time:          state.time,
+          hairLength:    state.hairProfile?.length ?? null,
+          hairType:      state.hairProfile?.type   ?? null,
+          notes:         state.client.notes || null,
+          automationRef: automationRef,
           client: {
             name:  state.client.name,
             phone: state.client.phone,

@@ -26,6 +26,9 @@ export async function PATCH(
   // Load and validate tenant ownership
   const appointment = await db.appointment.findFirst({
     where: { id: params.id, salonId: session.user.salonId },
+    include: {
+      services: { select: { serviceId: true } },
+    },
   });
   if (!appointment) return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
 
@@ -33,6 +36,7 @@ export async function PATCH(
     const body = await req.json();
     const parsed = patchSchema.parse(body);
 
+    // ── Employee reassignment ────────────────────────────────────────────────
     if ("employeeId" in parsed) {
       const { employeeId } = parsed;
 
@@ -52,7 +56,7 @@ export async function PATCH(
           OR: [
             {
               startsAt: { lt: appointment.endsAt },
-              endsAt: { gt: appointment.startsAt },
+              endsAt:   { gt: appointment.startsAt },
             },
           ],
         },
@@ -67,9 +71,9 @@ export async function PATCH(
 
       const updated = await db.appointment.update({
         where: { id: params.id },
-        data: { employeeId },
+        data:  { employeeId },
         include: {
-          client: { select: { id: true, name: true, phone: true } },
+          client:   { select: { id: true, name: true, phone: true } },
           employee: { select: { id: true, name: true, color: true, isActive: true } },
           services: { include: { service: { select: { name: true } } } },
         },
@@ -78,15 +82,49 @@ export async function PATCH(
       return NextResponse.json(updated);
     }
 
+    // ── Status change ────────────────────────────────────────────────────────
     const updated = await db.appointment.update({
       where: { id: params.id },
-      data: { status: parsed.status },
+      data:  { status: parsed.status },
       include: {
-        client: { select: { id: true, name: true, phone: true } },
+        client:   { select: { id: true, name: true, phone: true } },
         employee: { select: { id: true, name: true, color: true, isActive: true } },
         services: { include: { service: { select: { name: true } } } },
       },
     });
+
+    // ── Automation trigger on COMPLETED ──────────────────────────────────────
+    if (parsed.status === "COMPLETED") {
+      const serviceIds = appointment.services.map((s) => s.serviceId);
+
+      // Find active automation rules for the services in this appointment
+      const rules = await db.automationRule.findMany({
+        where: {
+          salonId:   session.user.salonId,
+          serviceId: { in: serviceIds },
+          isActive:  true,
+        },
+      });
+
+      if (rules.length > 0) {
+        const completedAt = new Date();
+        const queueEntries = rules.map((rule) => ({
+          ruleId:        rule.id,
+          clientId:      appointment.clientId,
+          appointmentId: appointment.id,
+          salonId:       session.user.salonId,
+          scheduledAt:   new Date(
+            completedAt.getTime() + rule.delayDays * 24 * 60 * 60 * 1000
+          ),
+        }));
+
+        // createMany with skipDuplicates — idempotent if called twice
+        await db.automationQueue.createMany({
+          data:           queueEntries,
+          skipDuplicates: true,
+        });
+      }
+    }
 
     return NextResponse.json(updated);
   } catch (error) {

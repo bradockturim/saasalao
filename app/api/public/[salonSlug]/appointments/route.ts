@@ -4,13 +4,14 @@ import { z } from "zod";
 import { sendWhatsAppMessage, formatPhoneForWhatsApp } from "@/lib/whatsapp";
 
 const schema = z.object({
-  serviceId:  z.string(),
-  employeeId: z.string(), // real ID or "any"
-  date:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  time:       z.string().regex(/^\d{2}:\d{2}$/),
-  hairLength: z.enum(["SHORT", "MEDIUM", "LONG"]).optional().nullable(),
-  hairType:   z.enum(["STRAIGHT", "WAVY_CURLY"]).optional().nullable(),
-  notes:      z.string().optional().nullable(),
+  serviceId:      z.string(),
+  employeeId:     z.string(), // real ID or "any"
+  date:           z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  time:           z.string().regex(/^\d{2}:\d{2}$/),
+  hairLength:     z.enum(["SHORT", "MEDIUM", "LONG"]).optional().nullable(),
+  hairType:       z.enum(["STRAIGHT", "WAVY_CURLY"]).optional().nullable(),
+  notes:          z.string().optional().nullable(),
+  automationRef:  z.string().optional().nullable(), // AutomationQueue ID for conversion tracking
   client: z.object({
     name:  z.string().min(2),
     phone: z.string().min(8),
@@ -64,11 +65,9 @@ export async function POST(
 
     // ─── Resolve employee ────────────────────────────────────────────────────
     let resolvedEmployeeId: string;
-    // staffId = client preference (null = sem preferência)
     const staffId: string | null = data.employeeId === "any" ? null : data.employeeId;
 
     if (data.employeeId === "any") {
-      // Auto-assign: find active employees for this service
       let candidates = await db.employee.findMany({
         where: {
           salonId: salon.id,
@@ -106,13 +105,12 @@ export async function POST(
         );
       }
 
-      // Pick employee with fewest non-cancelled appointments on this day
       const dayStart = new Date(data.date + "T00:00:00");
       const dayEnd   = new Date(data.date + "T23:59:59");
 
       const counts = await Promise.all(
         candidates.map(async (emp) => ({
-          id:    emp.id,
+          id: emp.id,
           count: await db.appointment.count({
             where: {
               employeeId: emp.id,
@@ -123,10 +121,8 @@ export async function POST(
         }))
       );
 
-      // Sort by count ASC, name already ASC from query
       counts.sort((a, b) => a.count - b.count);
 
-      // Among least-busy, find the first one with no conflict at the chosen slot
       let assigned: string | null = null;
       for (const { id } of counts) {
         const conflict = await db.appointment.findFirst({
@@ -149,7 +145,6 @@ export async function POST(
 
       resolvedEmployeeId = assigned;
     } else {
-      // Specific employee chosen
       const employee = await db.employee.findFirst({
         where: { id: data.employeeId, salonId: salon.id, isActive: true },
       });
@@ -201,7 +196,7 @@ export async function POST(
         salonId:    salon.id,
         clientId:   client.id,
         employeeId: resolvedEmployeeId,
-        staffId,                        // null = sem preferência, ID = preferência
+        staffId,
         startsAt,
         endsAt,
         totalPrice: price,
@@ -222,7 +217,20 @@ export async function POST(
       },
     });
 
-    // ─── WhatsApp notification (fire-and-forget) ────────────────────────────
+    // ─── Track automation conversion (fire-and-forget) ───────────────────────
+    if (data.automationRef) {
+      db.automationQueue.updateMany({
+        where: {
+          id:       data.automationRef,
+          clientId: client.id, // safety: only update if client matches
+          status:   "SENT",
+          convertedAt: null,
+        },
+        data: { convertedAt: new Date() },
+      }).catch((err) => console.error("[automation conversion]", err));
+    }
+
+    // ─── WhatsApp notification (fire-and-forget) ─────────────────────────────
     if (salon.whatsappNotifyNew && salon.whatsappNumber) {
       const dateLabel = new Intl.DateTimeFormat("pt-BR", {
         weekday: "long",
@@ -249,7 +257,6 @@ export async function POST(
         `🕐 *Horário:* ${timeLabel}\n` +
         `💰 *Valor:* R$ ${appointment.totalPrice.toFixed(2).replace(".", ",")}`;
 
-      // Não bloqueia a resposta — falhas de WhatsApp não afetam o agendamento
       sendWhatsAppMessage(salon.whatsappNumber, message).catch((err) =>
         console.error("[WhatsApp notify]", err)
       );
