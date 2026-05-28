@@ -16,6 +16,8 @@ const updateSchema = z.object({
   duration: z.number().int().min(1).optional(),
   price: z.number().min(0).optional(),
   hasPricingByLength: z.boolean().optional(),
+  activeTime: z.number().int().min(1).optional().nullable(),
+  requiresVirginHairCheck: z.boolean().optional(),
   isActive: z.boolean().optional(),
   pricings: z.array(pricingSchema).optional(),
 });

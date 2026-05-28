@@ -16,6 +16,8 @@ const createServiceSchema = z.object({
   duration: z.number().int().min(1),
   price: z.number().min(0),
   hasPricingByLength: z.boolean().default(false),
+  activeTime: z.number().int().min(1).optional().nullable(),
+  requiresVirginHairCheck: z.boolean().default(false),
   pricings: z.array(pricingSchema).optional(),
 });
 
@@ -55,6 +57,8 @@ export async function POST(req: NextRequest) {
         duration: data.duration,
         price: data.price,
         hasPricingByLength: data.hasPricingByLength,
+        activeTime: data.activeTime ?? null,
+        requiresVirginHairCheck: data.requiresVirginHairCheck,
         pricings: data.hasPricingByLength && data.pricings?.length
           ? {
               create: data.pricings.map((p) => ({

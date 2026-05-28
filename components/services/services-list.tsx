@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Pencil, ToggleLeft, ToggleRight, Clock, Tag } from "lucide-react";
+import { Plus, Pencil, ToggleLeft, ToggleRight, Clock, Tag, Zap, Leaf } from "lucide-react";
 
 type HairLength = "SHORT" | "MEDIUM" | "LONG";
 
@@ -24,6 +24,8 @@ type Service = {
   duration: number;
   price: number;
   hasPricingByLength: boolean;
+  activeTime: number | null;
+  requiresVirginHairCheck: boolean;
   isActive: boolean;
   category: { id: string; name: string; color: string } | null;
   pricings: { hairLength: HairLength; price: number; duration: number | null }[];
@@ -131,7 +133,24 @@ export function ServicesList({ initialServices, categories }: Props) {
                   <span className="flex items-center gap-1 text-sm text-gray-600">
                     <Clock className="w-3.5 h-3.5" />
                     {service.duration} min
+                    {service.activeTime && (
+                      <span className="text-xs text-indigo-500 font-medium ml-1" title="Tempo ativo da profissional">
+                        ({service.activeTime} min ativo)
+                      </span>
+                    )}
                   </span>
+                  {service.activeTime && (
+                    <span className="flex items-center gap-1 text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full font-medium" title="Agendamento simultâneo permitido durante espera">
+                      <Zap className="w-3 h-3" />
+                      Simultâneo
+                    </span>
+                  )}
+                  {service.requiresVirginHairCheck && (
+                    <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">
+                      <Leaf className="w-3 h-3" />
+                      Pergunta cabelo virgem
+                    </span>
+                  )}
 
                   {!service.hasPricingByLength ? (
                     <span className="text-sm font-medium text-primary-700">

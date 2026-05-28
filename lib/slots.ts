@@ -1,10 +1,29 @@
+export interface SlotAppointment {
+  startsAt: Date | string;
+  endsAt: Date | string;
+  /** Professional active minutes. If set, professional is only blocked for activeTime minutes
+   *  from startsAt (e.g. highlights: professional applies for 50min, client waits the rest). */
+  activeTime?: number | null;
+}
+
 export interface SlotParams {
   date: Date;
   openTime: string;    // "HH:MM"
   closeTime: string;   // "HH:MM"
   durationMinutes: number;
-  appointments: { startsAt: Date | string; endsAt: Date | string }[];
+  appointments: SlotAppointment[];
   intervalMinutes?: number;
+}
+
+/** Returns the end of the professional's active window for an appointment. */
+function professionalEndsAt(apt: SlotAppointment): Date {
+  const start = new Date(apt.startsAt);
+  if (apt.activeTime) {
+    const end = new Date(start);
+    end.setMinutes(end.getMinutes() + apt.activeTime);
+    return end;
+  }
+  return new Date(apt.endsAt);
 }
 
 export function generateSlots({
@@ -39,7 +58,7 @@ export function generateSlots({
 
     const busy = appointments.some((apt) => {
       const s = new Date(apt.startsAt);
-      const e = new Date(apt.endsAt);
+      const e = professionalEndsAt(apt);
       return slotStart < e && slotEnd > s;
     });
 

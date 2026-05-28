@@ -14,16 +14,66 @@ function padTime(totalMins: number): string {
   return `${h}:${m}`;
 }
 
+/** Returns the end of the professional's active window.
+ *  For concurrent services (e.g. highlights), the professional is only blocked
+ *  for activeTime minutes; the client waits the rest. */
+function professionalEndsAt(apt: {
+  startsAt: Date | string;
+  endsAt: Date | string;
+  activeTime?: number | null;
+}): Date {
+  const start = new Date(apt.startsAt);
+  if (apt.activeTime) {
+    const end = new Date(start);
+    end.setMinutes(end.getMinutes() + apt.activeTime);
+    return end;
+  }
+  return new Date(apt.endsAt);
+}
+
 function isBusy(
   slotStart: Date,
   slotEnd: Date,
-  appointments: { startsAt: Date | string; endsAt: Date | string }[]
+  appointments: { startsAt: Date | string; endsAt: Date | string; activeTime?: number | null }[]
 ): boolean {
   return appointments.some((apt) => {
     const s = new Date(apt.startsAt);
-    const e = new Date(apt.endsAt);
+    const e = professionalEndsAt(apt);
     return slotStart < e && slotEnd > s;
   });
+}
+
+// ─── Appointment select shape ─────────────────────────────────────────────────
+
+const aptSelect = {
+  employeeId: true,
+  startsAt: true,
+  endsAt: true,
+  services: { select: { activeTime: true } },
+} as const;
+
+type AptRow = {
+  employeeId: string;
+  startsAt: Date;
+  endsAt: Date;
+  services: { activeTime: number | null }[];
+};
+
+/** Resolve the professional's active window from appointment services. */
+function resolveActiveTime(apt: AptRow): number | null {
+  // Take the minimum activeTime across services (professional finishes earliest task first)
+  // If all services lack activeTime, returns null (full duration blocked).
+  const times = apt.services.map((s) => s.activeTime).filter((t): t is number => t != null);
+  if (times.length === 0) return null;
+  return Math.max(...times); // use max so professional stays busy until last active service ends
+}
+
+function toSlotApt(apt: AptRow) {
+  return {
+    startsAt: apt.startsAt,
+    endsAt: apt.endsAt,
+    activeTime: resolveActiveTime(apt),
+  };
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────
@@ -91,7 +141,6 @@ export async function GET(
   // ─── "any" mode: slot available if ≥1 employee is free ───────────────────
 
   if (employeeId === "any") {
-    // Get all active employees that can do this service
     let employees = await db.employee.findMany({
       where: {
         salonId: salon.id,
@@ -121,7 +170,6 @@ export async function GET(
 
     if (employees.length === 0) return NextResponse.json({ slots: [] });
 
-    // Load all appointments for all employees on this day in ONE query
     const allApts = await db.appointment.findMany({
       where: {
         salonId: salon.id,
@@ -129,17 +177,14 @@ export async function GET(
         startsAt: { gte: dayStart, lte: dayEnd },
         status: { notIn: ["CANCELLED", "NO_SHOW"] },
       },
-      select: { employeeId: true, startsAt: true, endsAt: true },
-    });
+      select: aptSelect,
+    }) as AptRow[];
 
-    // Build per-employee busy map
-    const busyMap = new Map<string, { startsAt: Date; endsAt: Date }[]>();
+    // Build per-employee busy map (with activeTime)
+    const busyMap = new Map<string, ReturnType<typeof toSlotApt>[]>();
     for (const emp of employees) busyMap.set(emp.id, []);
     for (const apt of allApts) {
-      busyMap.get(apt.employeeId)?.push({
-        startsAt: new Date(apt.startsAt),
-        endsAt: new Date(apt.endsAt),
-      });
+      busyMap.get(apt.employeeId)?.push(toSlotApt(apt));
     }
 
     const slots: string[] = [];
@@ -151,7 +196,6 @@ export async function GET(
       const slotEnd = new Date(slotStart);
       slotEnd.setMinutes(slotEnd.getMinutes() + durationMinutes);
 
-      // At least ONE employee must be free
       const anyFree = employees.some(
         (emp) => !isBusy(slotStart, slotEnd, busyMap.get(emp.id) ?? [])
       );
@@ -162,17 +206,19 @@ export async function GET(
     return NextResponse.json({ slots, durationMinutes });
   }
 
-  // ─── Single employee mode (original logic) ────────────────────────────────
+  // ─── Single employee mode ─────────────────────────────────────────────────
 
-  const appointments = await db.appointment.findMany({
+  const rawApts = await db.appointment.findMany({
     where: {
       salonId: salon.id,
       employeeId,
       startsAt: { gte: dayStart, lte: dayEnd },
       status: { notIn: ["CANCELLED", "NO_SHOW"] },
     },
-    select: { startsAt: true, endsAt: true },
-  });
+    select: aptSelect,
+  }) as AptRow[];
+
+  const slotApts = rawApts.map(toSlotApt);
 
   const slots: string[] = [];
   for (let start = openTotal; start + durationMinutes <= closeTotal; start += interval) {
@@ -183,7 +229,7 @@ export async function GET(
     const slotEnd = new Date(slotStart);
     slotEnd.setMinutes(slotEnd.getMinutes() + durationMinutes);
 
-    if (!isBusy(slotStart, slotEnd, appointments)) {
+    if (!isBusy(slotStart, slotEnd, slotApts)) {
       slots.push(padTime(start));
     }
   }

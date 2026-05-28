@@ -29,6 +29,7 @@ type Service = {
   duration: number;
   price: number;
   hasPricingByLength: boolean;
+  requiresVirginHairCheck: boolean;
   category: { name: string; color: string } | null;
   pricings: Pricing[];
 };
@@ -52,6 +53,7 @@ interface State {
   date: string | null;
   time: string | null;
   client: ClientInfo;
+  virginHair: boolean | null;  // null = not asked; true/false = answered
   hairProfile: { type: HairType; length: HairLength } | null;
   submitting: boolean;
   error: string;
@@ -68,6 +70,7 @@ type Action =
   | { type: "SELECT_DATE"; date: string }
   | { type: "SELECT_TIME"; time: string }
   | { type: "SET_CLIENT"; client: ClientInfo }
+  | { type: "SET_VIRGIN_HAIR"; value: boolean | null }
   | { type: "BACK" }
   | { type: "SUBMIT_START" }
   | { type: "SUBMIT_DONE"; ref: string; employeeName: string }
@@ -91,6 +94,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, time: action.time, step: "info" };
     case "SET_CLIENT":
       return { ...state, client: action.client };
+    case "SET_VIRGIN_HAIR":
+      return { ...state, virginHair: action.value };
     case "BACK": {
       const idx = STEP_ORDER.indexOf(state.step);
       if (idx <= 0) return state;
@@ -121,6 +126,7 @@ const INITIAL_STATE: State = {
   date: null,
   time: null,
   client: { name: "", phone: "", email: "", notes: "" },
+  virginHair: null,
   hairProfile: null,
   submitting: false,
   error: "",
@@ -219,6 +225,7 @@ export function BookingWizard({ salon, service, automationRef = null }: Props) {
           time:          state.time,
           hairLength:    state.hairProfile?.length ?? null,
           hairType:      state.hairProfile?.type   ?? null,
+          virginHair:    state.virginHair,
           notes:         state.client.notes || null,
           automationRef: automationRef,
           client: {
@@ -514,6 +521,26 @@ export function BookingWizard({ salon, service, automationRef = null }: Props) {
                 <strong>{state.time}</strong>
               </p>
             </div>
+
+            {/* Virgin hair checkbox — shown only for chemical/coloring services */}
+            {service.requiresVirginHairCheck && (
+              <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  checked={state.virginHair === true}
+                  onChange={(e) =>
+                    dispatch({ type: "SET_VIRGIN_HAIR", value: e.target.checked ? true : false })
+                  }
+                />
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Meu cabelo é virgem</p>
+                  <p className="text-xs text-amber-600 mt-0.5">
+                    Nunca foi tingido, descolorido ou submetido a qualquer processo químico
+                  </p>
+                </div>
+              </label>
+            )}
 
             <StepInfo
               value={state.client}

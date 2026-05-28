@@ -3,6 +3,28 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { sendWhatsAppMessage, formatPhoneForWhatsApp } from "@/lib/whatsapp";
 
+// ─── Conflict detection helpers ──────────────────────────────────────────────
+
+type AptForConflict = { startsAt: Date; endsAt: Date; services: { activeTime: number | null }[] };
+
+/** Returns the end of the professional's active window.
+ *  For concurrent services (e.g. highlights), the professional is free after activeTime minutes. */
+function profEndsAt(apt: AptForConflict): Date {
+  const times = apt.services.map((s) => s.activeTime).filter((t): t is number => t != null);
+  if (times.length === 0) return apt.endsAt;
+  const end = new Date(apt.startsAt);
+  end.setMinutes(end.getMinutes() + Math.max(...times));
+  return end;
+}
+
+function hasConflict(apt: AptForConflict, newStart: Date, newEnd: Date): boolean {
+  return newStart < profEndsAt(apt) && newEnd > apt.startsAt;
+}
+
+const aptServiceSelect = { services: { select: { activeTime: true } } } as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const schema = z.object({
   serviceId:      z.string(),
   employeeId:     z.string(), // real ID or "any"
@@ -10,6 +32,7 @@ const schema = z.object({
   time:           z.string().regex(/^\d{2}:\d{2}$/),
   hairLength:     z.enum(["SHORT", "MEDIUM", "LONG"]).optional().nullable(),
   hairType:       z.enum(["STRAIGHT", "WAVY_CURLY"]).optional().nullable(),
+  virginHair:     z.boolean().optional().nullable(),
   notes:          z.string().optional().nullable(),
   automationRef:  z.string().optional().nullable(), // AutomationQueue ID for conversion tracking
   client: z.object({
@@ -48,6 +71,7 @@ export async function POST(
     // ─── Resolve price + duration ────────────────────────────────────────────
     let price           = service.price;
     let durationMinutes = service.duration;
+    const activeTime    = service.activeTime ?? null; // professional active minutes
     if (data.hairLength && service.hasPricingByLength) {
       const pricing = service.pricings.find((p) => p.hairLength === data.hairLength);
       if (pricing) {
@@ -108,32 +132,36 @@ export async function POST(
       const dayStart = new Date(data.date + "T00:00:00");
       const dayEnd   = new Date(data.date + "T23:59:59");
 
-      const counts = await Promise.all(
-        candidates.map(async (emp) => ({
-          id: emp.id,
-          count: await db.appointment.count({
-            where: {
-              employeeId: emp.id,
-              startsAt: { gte: dayStart, lte: dayEnd },
-              status: { notIn: ["CANCELLED", "NO_SHOW"] },
-            },
-          }),
-        }))
-      );
+      // Load existing appointments with activeTime for all candidates in one query
+      const allApts = await db.appointment.findMany({
+        where: {
+          salonId: salon.id,
+          employeeId: { in: candidates.map((c) => c.id) },
+          startsAt: { gte: dayStart, lte: dayEnd },
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        },
+        select: {
+          employeeId: true,
+          startsAt: true,
+          endsAt: true,
+          ...aptServiceSelect,
+        },
+      });
 
-      counts.sort((a, b) => a.count - b.count);
+      // Sort candidates by fewest appointments (load balancing)
+      const countMap = new Map<string, number>();
+      for (const c of candidates) countMap.set(c.id, 0);
+      for (const a of allApts) countMap.set(a.employeeId, (countMap.get(a.employeeId) ?? 0) + 1);
+      candidates.sort((a, b) => (countMap.get(a.id) ?? 0) - (countMap.get(b.id) ?? 0));
+
+      const busyMap = new Map<string, typeof allApts>();
+      for (const c of candidates) busyMap.set(c.id, []);
+      for (const a of allApts) busyMap.get(a.employeeId)?.push(a);
 
       let assigned: string | null = null;
-      for (const { id } of counts) {
-        const conflict = await db.appointment.findFirst({
-          where: {
-            employeeId: id,
-            salonId: salon.id,
-            status: { notIn: ["CANCELLED", "NO_SHOW"] },
-            OR: [{ startsAt: { lt: endsAt }, endsAt: { gt: startsAt } }],
-          },
-        });
-        if (!conflict) { assigned = id; break; }
+      for (const { id } of candidates) {
+        const empApts = busyMap.get(id) ?? [];
+        if (!empApts.some((apt) => hasConflict(apt, startsAt, endsAt))) { assigned = id; break; }
       }
 
       if (!assigned) {
@@ -152,15 +180,21 @@ export async function POST(
         return NextResponse.json({ error: "Profissional não encontrado" }, { status: 404 });
       }
 
-      const conflict = await db.appointment.findFirst({
+      // Load existing appointments in the window for this employee
+      const windowStart = new Date(startsAt); windowStart.setHours(0, 0, 0, 0);
+      const windowEnd   = new Date(startsAt); windowEnd.setHours(23, 59, 59, 999);
+
+      const existingApts = await db.appointment.findMany({
         where: {
           salonId: salon.id,
           employeeId: data.employeeId,
+          startsAt: { gte: windowStart, lte: windowEnd },
           status: { notIn: ["CANCELLED", "NO_SHOW"] },
-          OR: [{ startsAt: { lt: endsAt }, endsAt: { gt: startsAt } }],
         },
+        select: { startsAt: true, endsAt: true, ...aptServiceSelect },
       });
-      if (conflict) {
+
+      if (existingApts.some((apt) => hasConflict(apt, startsAt, endsAt))) {
         return NextResponse.json(
           { error: "Horário indisponível. Escolha outro." },
           { status: 409 }
@@ -201,12 +235,14 @@ export async function POST(
         endsAt,
         totalPrice: price,
         notes:      data.notes,
+        virginHair: data.virginHair ?? null,
         status:     "SCHEDULED",
         services: {
           create: {
             serviceId: data.serviceId,
             price,
             duration: durationMinutes,
+            activeTime,
           },
         },
       },

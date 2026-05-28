@@ -25,6 +25,7 @@ export default async function BookPage({ params, searchParams }: Props) {
       duration: true,
       price: true,
       hasPricingByLength: true,
+      requiresVirginHairCheck: true,
       category: { select: { name: true, color: true } },
       pricings: { select: { hairLength: true, price: true, duration: true } },
     },

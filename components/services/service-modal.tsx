@@ -26,6 +26,8 @@ type ServiceForm = {
   duration: string;
   price: string;
   hasPricingByLength: boolean;
+  activeTime: string;
+  requiresVirginHairCheck: boolean;
   pricings: Pricing[];
 };
 
@@ -42,6 +44,8 @@ const emptyForm: ServiceForm = {
   duration: "60",
   price: "",
   hasPricingByLength: false,
+  activeTime: "",
+  requiresVirginHairCheck: false,
   pricings: emptyPricings,
 };
 
@@ -53,6 +57,8 @@ type ServiceData = {
   duration: number;
   price: number;
   hasPricingByLength: boolean;
+  activeTime: number | null;
+  requiresVirginHairCheck: boolean;
   isActive: boolean;
   category: { id: string; name: string; color: string } | null;
   pricings: { hairLength: HairLength; price: number; duration: number | null }[];
@@ -89,6 +95,8 @@ export function ServiceModal({ open, onClose, onSaved, categories, editService }
           duration: String(editService.duration),
           price: String(editService.price),
           hasPricingByLength: editService.hasPricingByLength,
+          activeTime: editService.activeTime ? String(editService.activeTime) : "",
+          requiresVirginHairCheck: editService.requiresVirginHairCheck,
           pricings,
         });
       } else {
@@ -131,6 +139,8 @@ export function ServiceModal({ open, onClose, onSaved, categories, editService }
         duration: parseInt(form.duration) || 60,
         price: parseFloat(form.price) || 0,
         hasPricingByLength: form.hasPricingByLength,
+        activeTime: form.activeTime ? parseInt(form.activeTime) : null,
+        requiresVirginHairCheck: form.requiresVirginHairCheck,
         pricings: form.hasPricingByLength
           ? form.pricings.map((p) => ({
               hairLength: p.hairLength,
@@ -216,6 +226,36 @@ export function ServiceModal({ open, onClose, onSaved, categories, editService }
           value={form.duration}
           onChange={(e) => setField("duration", e.target.value)}
         />
+
+        {/* Tempo ativo da profissional */}
+        <div className="space-y-1">
+          <Input
+            label="Tempo ativo da profissional (min) — opcional"
+            type="number"
+            min="1"
+            placeholder={form.duration || "igual à duração"}
+            value={form.activeTime}
+            onChange={(e) => setField("activeTime", e.target.value)}
+          />
+          <p className="text-xs text-gray-400">
+            Para serviços onde a cliente aguarda o produto agir (ex: luzes, coloração), preencha
+            apenas o tempo que a profissional fica ativa. Após esse período ela pode atender outra cliente.
+          </p>
+        </div>
+
+        {/* Requer cabelo virgem */}
+        <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Perguntar se o cabelo é virgem</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Exibe um checkbox no agendamento para serviços químicos e de coloração
+            </p>
+          </div>
+          <Toggle
+            checked={form.requiresVirginHairCheck}
+            onChange={(v) => setField("requiresVirginHairCheck", v)}
+          />
+        </div>
 
         {/* Toggle preço por tamanho */}
         <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
