@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ChevronLeft, ChevronRight, Calendar,
-  AlertTriangle, ChevronDown, RefreshCw,
+  AlertTriangle, ChevronDown, RefreshCw, Leaf,
 } from "lucide-react";
 import { AppointmentStatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ type Appointment = {
   endsAt: string | Date;
   status: string;
   totalPrice: number;
+  virginHair: boolean | null;
   client: { id: string; name: string; phone: string };
   employee: { id: string; name: string; color: string; isActive: boolean };
   services: { service: { name: string } }[];
@@ -122,12 +123,24 @@ function AppCard({
           <p className="text-[10px] opacity-80 leading-tight truncate mt-0.5">
             {apt.services.map((s) => s.service.name).join(", ")}
           </p>
-          <div className="flex items-center gap-1 mt-0.5">
+          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
             <div
               className="w-2 h-2 rounded-full shrink-0 border border-white/40"
               style={{ backgroundColor: apt.employee.color }}
             />
             <p className="text-[10px] opacity-80 truncate">{apt.employee.name}</p>
+            {apt.virginHair === true && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold bg-white/20 rounded px-1 py-px shrink-0">
+                <Leaf className="w-2 h-2" />
+                Virgem
+              </span>
+            )}
+            {apt.virginHair === false && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold bg-white/20 rounded px-1 py-px shrink-0">
+                <Leaf className="w-2 h-2 opacity-50" />
+                Tratado
+              </span>
+            )}
           </div>
         </>
       )}
@@ -222,6 +235,16 @@ function AppDetail({
             <span className="text-gray-500">Total: </span>
             <span className="font-medium text-gray-900">{formatCurrency(apt.totalPrice)}</span>
           </p>
+          {apt.virginHair !== null && apt.virginHair !== undefined && (
+            <p className="flex items-center gap-1.5">
+              <Leaf className={cn("w-3.5 h-3.5 shrink-0", apt.virginHair ? "text-green-500" : "text-gray-400")} />
+              <span className="text-gray-500">Cabelo virgem: </span>
+              {apt.virginHair
+                ? <span className="font-medium text-green-700">Sim</span>
+                : <span className="font-medium text-gray-700">Não (já tratado)</span>
+              }
+            </p>
+          )}
         </div>
 
         {/* Reatribuir */}

@@ -283,14 +283,30 @@ export async function POST(
         .map((s) => s.service.name)
         .join(", ");
 
+      const virginHairLine =
+        data.virginHair === true  ? `🌿 *Cabelo virgem:* Sim
+` :
+        data.virginHair === false ? `🌿 *Cabelo virgem:* Não (já tratado quimicamente)
+` :
+        "";
+
       const message =
-        `📅 *Novo agendamento — ${salon.name}*\n\n` +
-        `👤 *Cliente:* ${appointment.client.name}\n` +
-        `📞 *Telefone:* ${appointment.client.phone}\n` +
-        `✂️ *Serviço:* ${serviceNames}\n` +
-        `👩‍💼 *Profissional:* ${appointment.employee.name}\n` +
-        `🗓️ *Data:* ${dateLabel}\n` +
-        `🕐 *Horário:* ${timeLabel}\n` +
+        `📅 *Novo agendamento — ${salon.name}*
+
+` +
+        `👤 *Cliente:* ${appointment.client.name}
+` +
+        `📞 *Telefone:* ${appointment.client.phone}
+` +
+        `✂️ *Serviço:* ${serviceNames}
+` +
+        `👩‍💼 *Profissional:* ${appointment.employee.name}
+` +
+        `🗓️ *Data:* ${dateLabel}
+` +
+        `🕐 *Horário:* ${timeLabel}
+` +
+        virginHairLine +
         `💰 *Valor:* R$ ${appointment.totalPrice.toFixed(2).replace(".", ",")}`;
 
       sendWhatsAppMessage(salon.whatsappNumber, message).catch((err) =>
