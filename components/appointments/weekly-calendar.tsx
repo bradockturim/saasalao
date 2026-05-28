@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ChevronLeft, ChevronRight, Calendar,
   AlertTriangle, ChevronDown, RefreshCw, Leaf,
+  Plus, Lock, Trash2, CheckCircle2, XCircle, UserX, PlayCircle,
 } from "lucide-react";
+import { AppointmentCreateModal } from "@/components/appointments/appointment-create-modal";
+import { TimeBlockModal }         from "@/components/appointments/time-block-modal";
 import { AppointmentStatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatTime } from "@/lib/utils";
@@ -28,6 +31,15 @@ type EmployeeFilter = {
   id: string;
   name: string;
   color: string;
+};
+
+type TimeBlock = {
+  id: string;
+  startsAt: string | Date;
+  endsAt: string | Date;
+  reason: string | null;
+  employeeId: string | null;
+  employee: { id: string; name: string; color: string } | null;
 };
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -155,16 +167,37 @@ function AppDetail({
   employees,
   onClose,
   onReassigned,
+  onStatusChanged,
 }: {
   apt: Appointment;
   employees: EmployeeFilter[];
   onClose: () => void;
   onReassigned: (updated: Appointment) => void;
+  onStatusChanged: (updated: Appointment) => void;
 }) {
   const [reassigning, setReassigning] = useState(false);
   const [selectedEmpId, setSelectedEmpId] = useState(apt.employee.id);
   const [loading, setLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  async function changeStatus(status: string) {
+    setStatusLoading(status);
+    setError(null);
+    const res = await fetch(`/api/appointments/${apt.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    setStatusLoading(null);
+    if (res.ok) {
+      const updated = await res.json();
+      onStatusChanged(updated);
+    } else {
+      const json = await res.json();
+      setError(json.error ?? "Erro ao atualizar status");
+    }
+  }
 
   async function handleReassign() {
     if (selectedEmpId === apt.employee.id) { setReassigning(false); return; }
@@ -246,6 +279,48 @@ function AppDetail({
             </p>
           )}
         </div>
+
+        {/* ── Status actions ──────────────────────────────────────────────── */}
+        {!["COMPLETED", "CANCELLED", "NO_SHOW"].includes(apt.status) && (
+          <div className="flex flex-wrap gap-2 py-1">
+            {apt.status !== "IN_PROGRESS" && (
+              <button
+                onClick={() => changeStatus("IN_PROGRESS")}
+                disabled={statusLoading !== null}
+                className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+              >
+                <PlayCircle className="w-3.5 h-3.5" />
+                Em atendimento
+              </button>
+            )}
+            {apt.status !== "COMPLETED" && (
+              <button
+                onClick={() => changeStatus("COMPLETED")}
+                disabled={statusLoading !== null}
+                className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Concluir
+              </button>
+            )}
+            <button
+              onClick={() => changeStatus("NO_SHOW")}
+              disabled={statusLoading !== null}
+              className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-50"
+            >
+              <UserX className="w-3.5 h-3.5" />
+              Não compareceu
+            </button>
+            <button
+              onClick={() => changeStatus("CANCELLED")}
+              disabled={statusLoading !== null}
+              className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              Cancelar
+            </button>
+          </div>
+        )}
 
         {/* Reatribuir */}
         {!reassigning ? (
@@ -393,16 +468,20 @@ function EmployeeFilterDropdown({
 
 interface Props {
   initialAppointments: Appointment[];
+  initialTimeBlocks:   TimeBlock[];
   employees: EmployeeFilter[];
 }
 
-export function WeeklyCalendar({ initialAppointments, employees }: Props) {
+export function WeeklyCalendar({ initialAppointments, initialTimeBlocks, employees }: Props) {
   const today = new Date();
   const [weekStart,      setWeekStart]      = useState(() => getWeekStart(today));
   const [appointments,   setAppointments]   = useState<Appointment[]>(initialAppointments);
+  const [timeBlocks,     setTimeBlocks]     = useState<TimeBlock[]>(initialTimeBlocks);
   const [filterEmployee, setFilterEmployee] = useState<string>("");  // "" = all
   const [loading,        setLoading]        = useState(false);
   const [selected,       setSelected]       = useState<Appointment | null>(null);
+  const [showCreate,     setShowCreate]     = useState(false);
+  const [showBlock,      setShowBlock]      = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to 8:00 on mount
@@ -416,10 +495,14 @@ export function WeeklyCalendar({ initialAppointments, employees }: Props) {
   const fetchWeek = useCallback(async (start: Date, empId?: string) => {
     setLoading(true);
     try {
-      const iso     = start.toISOString().split("T")[0];
+      const iso      = start.toISOString().split("T")[0];
       const empParam = (empId ?? filterEmployee) ? `&employeeId=${empId ?? filterEmployee}` : "";
-      const res     = await fetch(`/api/appointments?weekStart=${iso}${empParam}`);
-      if (res.ok) setAppointments(await res.json());
+      const [apts, blocks] = await Promise.all([
+        fetch(`/api/appointments?weekStart=${iso}${empParam}`).then((r) => r.ok ? r.json() : []),
+        fetch(`/api/time-blocks?weekStart=${iso}`).then((r) => r.ok ? r.json() : []),
+      ]);
+      setAppointments(apts);
+      setTimeBlocks(blocks);
     } finally {
       setLoading(false);
     }
@@ -443,11 +526,26 @@ export function WeeklyCalendar({ initialAppointments, employees }: Props) {
   }
 
   function handleReassigned(updated: Appointment) {
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === updated.id ? updated : a))
-    );
+    setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
     setSelected(updated);
   }
+
+  function handleStatusChanged(updated: Appointment) {
+    setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+    setSelected(updated);
+  }
+
+  function handleBlockCreated(block: TimeBlock) {
+    setTimeBlocks((prev) => [...prev, block]);
+  }
+
+  async function handleBlockDelete(blockId: string) {
+    await fetch(`/api/time-blocks/${blockId}`, { method: "DELETE" });
+    setTimeBlocks((prev) => prev.filter((b) => b.id !== blockId));
+    setSelectedBlock(null);
+  }
+
+  const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null);
 
   const weekDays  = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const timeSlots = Array.from({ length: TOTAL_SLOTS }, (_, i) => {
@@ -465,6 +563,7 @@ export function WeeklyCalendar({ initialAppointments, employees }: Props) {
   const nowTop = isCurrentWeek ? topPx(today) : null;
 
   return (
+    <>
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col relative">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0 gap-3 flex-wrap">
@@ -489,8 +588,7 @@ export function WeeklyCalendar({ initialAppointments, employees }: Props) {
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Employee filter */}
+        <div className="flex items-center gap-2 flex-wrap">
           {employees.length > 0 && (
             <EmployeeFilterDropdown
               employees={employees}
@@ -498,6 +596,16 @@ export function WeeklyCalendar({ initialAppointments, employees }: Props) {
               onChange={handleFilterChange}
             />
           )}
+
+          <Button size="sm" onClick={() => setShowCreate(true)} className="gap-1">
+            <Plus className="w-3.5 h-3.5" />
+            Novo
+          </Button>
+
+          <Button size="sm" variant="secondary" onClick={() => setShowBlock(true)} className="gap-1">
+            <Lock className="w-3.5 h-3.5" />
+            Bloquear
+          </Button>
 
           {loading && (
             <div className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -551,7 +659,12 @@ export function WeeklyCalendar({ initialAppointments, employees }: Props) {
 
           {/* Day columns */}
           {weekDays.map((day, di) => {
-            const dayApts = getApts(day);
+            const dayApts    = getApts(day);
+            const dayBlocks  = timeBlocks.filter((b) => {
+              if (!isSameDay(new Date(b.startsAt), day)) return false;
+              if (!filterEmployee) return true;
+              return !b.employeeId || b.employeeId === filterEmployee;
+            });
             const isToday = isSameDay(day, today);
             return (
               <div
@@ -577,6 +690,27 @@ export function WeeklyCalendar({ initialAppointments, employees }: Props) {
                   </div>
                 )}
 
+                {/* Time blocks (grey overlays) */}
+                {dayBlocks.map((block) => {
+                  const s = new Date(block.startsAt);
+                  const e = new Date(block.endsAt);
+                  return (
+                    <button
+                      key={block.id}
+                      onClick={() => setSelectedBlock(block)}
+                      className="absolute inset-x-1 rounded-lg bg-gray-200 border border-gray-300 flex flex-col items-start px-1.5 py-1 overflow-hidden hover:bg-gray-300 transition-colors z-[5]"
+                      style={{ top: topPx(s), height: Math.max(20, heightPx(s, e)) }}
+                    >
+                      <Lock className="w-2.5 h-2.5 text-gray-500 shrink-0" />
+                      {heightPx(s, e) > 32 && (
+                        <p className="text-[9px] text-gray-500 leading-tight truncate w-full">
+                          {block.reason ?? "Bloqueado"}
+                        </p>
+                      )}
+                    </button>
+                  );
+                })}
+
                 {dayApts.map((apt) => (
                   <AppCard key={apt.id} apt={apt} onClick={setSelected} />
                 ))}
@@ -586,15 +720,82 @@ export function WeeklyCalendar({ initialAppointments, employees }: Props) {
         </div>
       </div>
 
-      {/* Detail overlay */}
+      {/* Appointment detail overlay */}
       {selected && (
         <AppDetail
           apt={selected}
           employees={employees}
           onClose={() => setSelected(null)}
           onReassigned={handleReassigned}
+          onStatusChanged={handleStatusChanged}
         />
       )}
+
+      {/* Time block detail overlay */}
+      {selectedBlock && (
+        <div
+          className="absolute inset-0 z-20 flex items-end sm:items-center justify-center p-4 bg-black/40"
+          onClick={() => setSelectedBlock(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-gray-500" />
+                  Horário bloqueado
+                </h3>
+                {selectedBlock.reason && (
+                  <p className="text-sm text-gray-500 mt-0.5">{selectedBlock.reason}</p>
+                )}
+              </div>
+            </div>
+            <div className="text-sm space-y-1 text-gray-700">
+              <p>
+                <span className="text-gray-500">Horário: </span>
+                {formatTime(new Date(selectedBlock.startsAt))} – {formatTime(new Date(selectedBlock.endsAt))}
+              </p>
+              <p>
+                <span className="text-gray-500">Profissional: </span>
+                {selectedBlock.employee?.name ?? "Todos"}
+              </p>
+            </div>
+            <Button
+              variant="danger"
+              size="sm"
+              className="w-full gap-1"
+              onClick={() => handleBlockDelete(selectedBlock.id)}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Remover bloqueio
+            </Button>
+            <Button variant="secondary" size="sm" className="w-full" onClick={() => setSelectedBlock(null)}>
+              Fechar
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
+
+    {/* Modals (outside the relative container) */}
+    <AppointmentCreateModal
+      open={showCreate}
+      onClose={() => setShowCreate(false)}
+      onCreated={(apt) => {
+        setAppointments((prev) => [...prev, apt as Appointment].sort(
+          (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()
+        ));
+      }}
+      employees={employees}
+    />
+    <TimeBlockModal
+      open={showBlock}
+      onClose={() => setShowBlock(false)}
+      onCreated={(b) => handleBlockCreated(b as TimeBlock)}
+      employees={employees}
+    />
+    </>
   );
 }

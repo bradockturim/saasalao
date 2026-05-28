@@ -76,6 +76,11 @@ function toSlotApt(apt: AptRow) {
   };
 }
 
+/** A time block always blocks the full window (no activeTime concept). */
+function blockToSlotApt(block: { startsAt: Date; endsAt: Date }) {
+  return { startsAt: block.startsAt, endsAt: block.endsAt, activeTime: null };
+}
+
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function GET(
@@ -170,21 +175,39 @@ export async function GET(
 
     if (employees.length === 0) return NextResponse.json({ slots: [] });
 
-    const allApts = await db.appointment.findMany({
-      where: {
-        salonId: salon.id,
-        employeeId: { in: employees.map((e) => e.id) },
-        startsAt: { gte: dayStart, lte: dayEnd },
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
-      },
-      select: aptSelect,
-    }) as AptRow[];
+    const [allApts, timeBlocks] = await Promise.all([
+      db.appointment.findMany({
+        where: {
+          salonId: salon.id,
+          employeeId: { in: employees.map((e) => e.id) },
+          startsAt: { gte: dayStart, lte: dayEnd },
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        },
+        select: aptSelect,
+      }) as Promise<AptRow[]>,
+      db.timeBlock.findMany({
+        where: {
+          salonId:  salon.id,
+          startsAt: { gte: dayStart, lte: dayEnd },
+        },
+        select: { employeeId: true, startsAt: true, endsAt: true },
+      }),
+    ]);
 
-    // Build per-employee busy map (with activeTime)
+    // Build per-employee busy map (appointments + time blocks)
     const busyMap = new Map<string, ReturnType<typeof toSlotApt>[]>();
     for (const emp of employees) busyMap.set(emp.id, []);
     for (const apt of allApts) {
       busyMap.get(apt.employeeId)?.push(toSlotApt(apt));
+    }
+    // Time blocks: null employeeId = applies to all; specific = only that employee
+    for (const block of timeBlocks) {
+      const blockSlot = blockToSlotApt(block);
+      if (!block.employeeId) {
+        for (const emp of employees) busyMap.get(emp.id)?.push(blockSlot);
+      } else {
+        busyMap.get(block.employeeId)?.push(blockSlot);
+      }
     }
 
     const slots: string[] = [];
@@ -208,17 +231,30 @@ export async function GET(
 
   // ─── Single employee mode ─────────────────────────────────────────────────
 
-  const rawApts = await db.appointment.findMany({
-    where: {
-      salonId: salon.id,
-      employeeId,
-      startsAt: { gte: dayStart, lte: dayEnd },
-      status: { notIn: ["CANCELLED", "NO_SHOW"] },
-    },
-    select: aptSelect,
-  }) as AptRow[];
+  const [rawApts, singleBlocks] = await Promise.all([
+    db.appointment.findMany({
+      where: {
+        salonId: salon.id,
+        employeeId,
+        startsAt: { gte: dayStart, lte: dayEnd },
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+      },
+      select: aptSelect,
+    }) as Promise<AptRow[]>,
+    db.timeBlock.findMany({
+      where: {
+        salonId:  salon.id,
+        startsAt: { gte: dayStart, lte: dayEnd },
+        OR: [{ employeeId: employeeId }, { employeeId: null }],
+      },
+      select: { startsAt: true, endsAt: true },
+    }),
+  ]);
 
-  const slotApts = rawApts.map(toSlotApt);
+  const slotApts = [
+    ...rawApts.map(toSlotApt),
+    ...singleBlocks.map(blockToSlotApt),
+  ];
 
   const slots: string[] = [];
   for (let start = openTotal; start + durationMinutes <= closeTotal; start += interval) {

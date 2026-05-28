@@ -43,6 +43,7 @@ model Salon {
   workingHours     WorkingHour[]
   automationRules  AutomationRule[]
   automationQueue  AutomationQueue[]
+  timeBlocks       TimeBlock[]
 
   @@map("salons")
 }
@@ -91,6 +92,7 @@ model Employee {
   appointments         Appointment[] @relation("AppointmentEmployee")
   staffedAppointments  Appointment[] @relation("AppointmentStaff")
   services     EmployeeService[]
+  timeBlocks   TimeBlock[]
 
   @@index([salonId])
   @@map("employees")
@@ -217,6 +219,7 @@ model Appointment {
   staff           Employee?           @relation("AppointmentStaff",    fields: [staffId],   references: [id], onDelete: SetNull)
   services        AppointmentService[]
   automationQueue AutomationQueue[]
+  reminders       AppointmentReminder[]
 
   @@index([salonId])
   @@index([salonId, startsAt])
@@ -240,6 +243,25 @@ model AppointmentService {
   @@map("appointment_services")
 }
 
+// ─── Time Blocks ─────────────────────────────────────────────────────────────
+
+model TimeBlock {
+  id         String    @id @default(cuid())
+  salonId    String
+  employeeId String?   // null = bloqueia todos os profissionais
+  startsAt   DateTime
+  endsAt     DateTime
+  reason     String?
+  createdAt  DateTime  @default(now())
+
+  salon    Salon     @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([salonId])
+  @@index([salonId, startsAt])
+  @@map("time_blocks")
+}
+
 // ─── Working Hours ────────────────────────────────────────────────────────────
 
 model WorkingHour {
@@ -255,6 +277,22 @@ model WorkingHour {
   @@unique([salonId, dayOfWeek])
   @@index([salonId])
   @@map("working_hours")
+}
+
+// ─── Appointment Reminders ────────────────────────────────────────────────────
+
+model AppointmentReminder {
+  id            String       @id @default(cuid())
+  appointmentId String
+  salonId       String
+  type          ReminderType
+  sentAt        DateTime     @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@unique([appointmentId, type])
+  @@index([salonId])
+  @@map("appointment_reminders")
 }
 
 // ─── Automation ───────────────────────────────────────────────────────────────
@@ -331,6 +369,11 @@ enum AutomationQueueStatus {
   SENT
   FAILED
   CANCELLED
+}
+
+enum ReminderType {
+  HOURS_24
+  HOURS_2
 }
 
 enum HairLength {

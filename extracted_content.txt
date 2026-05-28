@@ -1,0 +1,224 @@
+💅
+GlowBook
+Plataforma SaaS para Salões de Beleza
+Especificação Técnica — MVP v1.0
+Maio de 2026  •  Documento Confidencial
+
+1. Visão Geral do Produto
+O GlowBook é uma plataforma SaaS (Software as a Service) de agendamento e gestão para salões de beleza. O produto é vendido diretamente para donas de salão (B2B), que disponibilizam um site white-label para suas clientes (B2C) realizarem agendamentos online de forma autônoma.
+
+A proposta de valor central resolve dois problemas simultâneos:
+Para a dona do salão: centraliza agenda, reduz no-show via lembretes automáticos, elimina agendamentos por WhatsApp manual e entrega dados de gestão.
+Para a cliente: experiência de agendamento rápida, catálogo de preços personalizado pelo tipo/tamanho de cabelo e confirmações automáticas.
+
+1.1 Posicionamento de Mercado
+Sistemas de agendamento para barbearias e salões já existem no Brasil (ex.: Booksy, iSaloni, Trinks), porém com foco genérico. O GlowBook se diferencia ao combinar:
+Catálogo dinâmico por perfil capilar (tipo + tamanho do cabelo)
+Automação de recompra via WhatsApp (ex.: lembrete de progressiva após 60 dias)
+Opção de atendimento humanizado para clientes que preferem consultar antes de agendar
+Notificações em tempo real para a dona do salão via WhatsApp
+
+Viabilidade de mercado: Alta. O Brasil possui mais de 1 milhão de salões de beleza registrados (SEBRAE), setor com baixíssima digitalização. Modelo de receita recorrente (mensalidade) com custo de aquisição baixo via tráfego pago e indicações.
+
+
+2. Personas e Jornadas
+2.1 Persona — Dona do Salão (Administradora)
+
+2.2 Persona — Cliente do Salão (Usuária Final)
+
+
+3. Módulos do MVP
+3.1 Módulo A — Site da Cliente (Frontend Público)
+A1. Cadastro e Login
+Cadastro via e-mail + senha (mínimo 8 caracteres, confirmação de e-mail opcional no MVP)
+Login com e-mail/senha — JWT com refresh token (sessão de 30 dias)
+Recuperação de senha via link no e-mail
+Login social (Google) — backlog pós-MVP
+
+Campos obrigatórios no cadastro:
+Nome completo
+Telefone (WhatsApp preferencial)
+Tipo de cabelo: Liso | Ondulado | Cacheado | Crespo
+Tamanho do cabelo (ver seção A2)
+Serviços preferidos (multiselect — apenas para personalização, não obrigatório)
+
+A2. Seletor de Tipo e Tamanho do Cabelo
+Interface de seleção visual com ícones ilustrativos (SVG). Seis opções de tamanho, organizadas em duas linhas de 3:
+
+
+A cliente pode alterar tamanho e tipo a qualquer momento: no perfil e também na tela de agendamento. A alteração reflete imediatamente nos preços exibidos.
+
+A3. Catálogo de Serviços
+Serviços configurados pela dona do salão no painel admin
+Cada serviço possui: nome, descrição, duração estimada, e tabela de preços por (tipo de cabelo × tamanho)
+Na tela de catálogo, o preço exibido é filtrado automaticamente pelo perfil salvo da cliente
+Valor é apenas expositório — NÃO há gateway de pagamento no MVP
+Badge 'Recomendado para você' baseado nos serviços preferidos do cadastro
+Campo 'Agendamento Personalizado' — para serviços sem preço fixo (consulta prévia)
+
+A4. Fluxo de Agendamento
+Passo a passo da jornada de agendamento:
+Cliente seleciona o serviço no catálogo
+Escolhe o profissional (se o salão tiver mais de um)
+Visualiza calendário com dias disponíveis (dias sem disponibilidade aparecem desabilitados)
+Seleciona o horário — slots atualizam em tempo real (WebSocket ou polling de 10s)
+Confirma dados: serviço, profissional, data, hora e observações opcionais
+Agendamento criado — cliente recebe confirmação na tela e por WhatsApp/e-mail
+
+Regra de concorrência: ao clicar em um horário, ele é reservado por 5 minutos (lock temporário). Se a cliente não confirmar nesse prazo, o slot é liberado.
+
+A5. Área da Cliente (Minha Conta)
+Próximos agendamentos (com opção de cancelar com até X horas de antecedência — configurável)
+Histórico de atendimentos anteriores
+Editar perfil: dados pessoais, tipo e tamanho do cabelo
+Notificações: ativar/desativar lembretes por WhatsApp e e-mail
+
+
+3.2 Módulo B — Painel Administrativo (Dashboard da Dona do Salão)
+B1. Visão Geral (Dashboard)
+Cards de resumo: agendamentos hoje | esta semana | este mês
+Próximos 5 atendimentos do dia (com nome da cliente, serviço e horário)
+Alerta de agendamentos nas próximas 2 horas
+Receita estimada do dia/semana (baseada nos preços cadastrados — sem pagamento real)
+
+B2. Agenda / Calendário
+Visualização por dia, semana e mês
+Eventos coloridos por tipo de serviço
+Clique no agendamento: abre drawer com detalhes completos (cliente, serviço, tipo/tamanho cabelo, observações)
+Opções: marcar como concluído, cancelar, reagendar
+Bloqueio de horários: a dona pode bloquear períodos (feriado, folga, reunião)
+
+B3. Relatórios e Filtros
+Filtro por período, tipo de serviço, tipo de cabelo, tamanho do cabelo, profissional
+Tabela de agendamentos com exportação CSV
+Gráfico de barras: agendamentos por semana
+Gráfico de pizza: distribuição por tipo de serviço
+Ranking dos serviços mais agendados
+Taxa de cancelamento
+
+B4. Gestão de Clientes (CRM Básico)
+Lista de todas as clientes cadastradas
+Perfil da cliente: dados, tipo/tamanho cabelo, histórico de atendimentos, total gasto estimado
+Filtro por tipo de cabelo (útil para campanhas segmentadas)
+Exportar lista de clientes CSV
+
+B5. Configurações do Salão
+Nome, logo e cores do salão (personalização básica do site cliente)
+Horário de funcionamento por dia da semana
+Intervalo mínimo entre agendamentos (ex.: 15 min, 30 min, 1h)
+Antecedência mínima para cancelamento
+Cadastro de profissionais (nome, foto, especialidades)
+Cadastro de serviços: nome, duração, descrição, tabela de preços por perfil capilar
+Número de WhatsApp Business para notificações
+
+
+3.3 Módulo C — Automações e Notificações
+C1. Notificações para a Dona do Salão (WhatsApp)
+Disparadas via API do WhatsApp Business (ex.: Twilio, Z-API, Evolution API):
+Novo agendamento: 'Nova cliente agendou! Mariana Silva — Progressiva — Sex 14h'
+Cancelamento de agendamento
+Lembrete diário: resumo dos atendimentos do dia seguinte (ex.: enviado às 20h)
+
+C2. Notificações para a Cliente (WhatsApp + E-mail)
+Confirmação imediata após agendamento
+Lembrete 24h antes do atendimento
+Lembrete 2h antes do atendimento
+Mensagem pós-atendimento (agradecimento e avaliação — backlog)
+
+C3. Automação de Recompra (Diferencial Competitivo)
+Regras configuráveis pela dona do salão:
+Associar um serviço a um intervalo de recorrência (ex.: Progressiva = 60 dias, Tintura = 45 dias)
+Após a conclusão do atendimento, o sistema agenda automaticamente um disparo de WhatsApp para a cliente no prazo configurado
+Mensagem padrão editável: 'Oi Mariana! Já faz 2 meses desde a sua progressiva. Que tal renovar? Agende agora: [link]'
+A dona pode pausar, editar ou cancelar qualquer automação ativa
+Relatório de automações: enviadas, clicadas (UTM), convertidas em agendamento
+
+C4. Chatbot de WhatsApp (Entrada de Novas Clientes)
+Fluxo básico de chatbot via WhatsApp Business API:
+Cliente envia mensagem para o número do salão
+Bot responde com saudação e menu: 1) Agendar | 2) Ver preços | 3) Falar com atendente
+Opção 1: bot envia link personalizado do site de agendamento
+Opção 3: transfere para atendimento humano (a dona do salão assume a conversa)
+Integração via webhook com a plataforma — novos agendamentos pelo bot aparecem no painel
+
+C5. Opção de Agendamento Personalizado
+Para clientes que não querem agendar de forma autônoma ou cujo serviço não tem preço fixo:
+Botão 'Agendamento Personalizado' no catálogo e no fluxo de agendamento
+Cliente preenche: serviço de interesse, observações e disponibilidade de horário
+Dona do salão recebe notificação e entra em contato para combinar os detalhes
+Ao confirmar, a dona cria o agendamento manualmente no painel
+
+
+4. Arquitetura Técnica
+4.1 Stack Tecnológico Recomendado
+
+4.2 Modelo de Dados Simplificado (Entidades Principais)
+As principais entidades do banco de dados:
+
+
+Nota: price_table_json armazena uma matriz de preços indexada por (hair_type × hair_size), permitindo flexibilidade sem colunas adicionais.
+
+4.3 Segurança e Multi-tenancy
+Row Level Security (RLS) no banco: cada salão acessa apenas seus dados (salon_id em todas as tabelas)
+API: middleware valida que o token JWT pertence ao tenant correto
+Site da cliente: acessa apenas os dados do salão referente ao slug da URL
+Senhas: bcrypt com salt rounds 12
+Variáveis sensíveis: apenas em variáveis de ambiente (nunca no código)
+HTTPS obrigatório (Vercel + Railway fornecem por padrão)
+
+
+5. Roadmap de Desenvolvimento — MVP
+5.1 Cronograma de Sprints (Estimativa)
+Equipe mínima sugerida: 1 desenvolvedor fullstack sênior + 1 designer UI/UX (meio período)
+
+
+Total estimado: 13 semanas (~3 meses) para MVP completo com piloto.
+
+5.2 Critérios de Aceite do MVP
+
+
+6. Modelo de Negócio e Precificação SaaS
+6.1 Planos Sugeridos
+
+Estratégia de entrada: oferecer 30 dias grátis para os primeiros 50 salões (beta fechado). Ticket médio inicial esperado: R$ 150/mês.
+
+6.2 Projeção de Receita Simplificada
+
+Custo mensal de infra estimado no mês 12: R$ 800 a R$ 1.500 (Vercel Pro + Railway + serviços de WhatsApp). Margem > 90% em escala.
+
+
+7. Funcionalidades Pós-MVP Recomendadas
+7.1 Automações Avançadas com IA
+Análise preditiva de no-show: alerta a dona quando uma cliente historicamente cancela em certos dias
+Sugestão automática de horário com base no histórico da cliente
+Chatbot com IA generativa para tirar dúvidas sobre serviços (ex.: 'Quanto tempo dura uma progressiva?')
+Análise de sentimento de avaliações pós-atendimento
+
+7.2 Pagamentos Online
+Integração com Stripe ou MercadoPago para reserva com sinal (ex.: 30% no agendamento)
+Reduz no-show drasticamente
+Painel financeiro real com receita, comissões por profissional e projeção mensal
+
+7.3 Fidelidade e Marketing
+Programa de pontos por agendamento (ex.: 10 atendimentos = 1 grátis)
+Cupons de desconto para clientes inativas há X dias
+Integração com Instagram: botão 'Agendar agora' na bio
+Email marketing segmentado por tipo de serviço (ex.: promoção só para quem faz escova)
+
+7.4 Expansão de Produto
+App nativo iOS/Android para clientes (React Native)
+Módulo para clínicas de estética e nail designers (extensão vertical)
+Múltiplas unidades do mesmo salão
+Marketplace: vitrine de salões para clientes sem indicação prévia
+Avaliações e reviews pós-atendimento (visíveis no perfil público do salão)
+
+
+8. Riscos e Mitigações
+
+
+9. Glossário
+
+
+GlowBook SaaS — Documento de Especificação Técnica MVP v1.0
+Este documento é confidencial e destinado exclusivamente ao uso interno.
+

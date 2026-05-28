@@ -17,7 +17,7 @@ export default async function AppointmentsPage() {
   weekEnd.setDate(weekStart.getDate() + 6);
   weekEnd.setHours(23, 59, 59, 999);
 
-  const [appointments, employees] = await Promise.all([
+  const [appointments, employees, timeBlocks] = await Promise.all([
     db.appointment.findMany({
       where: { salonId, startsAt: { gte: weekStart, lte: weekEnd } },
       include: {
@@ -32,6 +32,11 @@ export default async function AppointmentsPage() {
       select:  { id: true, name: true, color: true },
       orderBy: { name: "asc" },
     }),
+    db.timeBlock.findMany({
+      where:   { salonId, startsAt: { gte: weekStart, lte: weekEnd } },
+      include: { employee: { select: { id: true, name: true, color: true } } },
+      orderBy: { startsAt: "asc" },
+    }),
   ]);
 
   return (
@@ -40,7 +45,11 @@ export default async function AppointmentsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Agendamentos</h1>
         <p className="text-gray-600">Visualize e gerencie a agenda semanal</p>
       </div>
-      <WeeklyCalendar initialAppointments={appointments} employees={employees} />
+      <WeeklyCalendar
+        initialAppointments={appointments}
+        initialTimeBlocks={timeBlocks}
+        employees={employees}
+      />
     </div>
   );
 }
