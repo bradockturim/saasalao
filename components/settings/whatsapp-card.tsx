@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   MessageCircle, CheckCircle2, XCircle,
   Send, Wifi, WifiOff, Loader2, RefreshCw,
@@ -30,11 +30,12 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialD
   const [testStatus,  setTestStatus]  = useState<TestStatus>("idle");
   const [testMessage, setTestMessage] = useState<string | null>(null);
 
-  const [wahaStatus, setWahaStatus] = useState<WahaStatus>("idle");
-  const [qrCode,     setQrCode]     = useState<string | null>(null);
-  const [showQr,     setShowQr]     = useState(false);
-  const [qrRefresh,  setQrRefresh]  = useState(Date.now());
-  const [wahaError,  setWahaError]  = useState<string | null>(null);
+  const [wahaStatus,  setWahaStatus]  = useState<WahaStatus>("idle");
+  const [qrCode,      setQrCode]      = useState<string | null>(null);
+  const [showQr,      setShowQr]      = useState(false);
+  const [qrRefresh,   setQrRefresh]   = useState(Date.now());
+  const [wahaError,   setWahaError]   = useState<string | null>(null);
+  const pollCount     = useRef(0);
 
   // ─── Busca status da conexão WAHA ────────────────────────────────────────────
   const checkWaha = useCallback(async (showLoading = false) => {
@@ -67,14 +68,26 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialD
     checkWaha(true);
   }, [checkWaha]);
 
-  // Poll silencioso a cada 3s enquanto o QR está visível
+  // Poll silencioso a cada 4s — para após 10 tentativas sem SCAN_QR_CODE
   useEffect(() => {
     if (!showQr) return;
-    const interval = setInterval(() => checkWaha(false), 3000);
+    pollCount.current = 0;
+    const interval = setInterval(() => {
+      pollCount.current += 1;
+      if (pollCount.current >= 10) {
+        clearInterval(interval);
+        setWahaStatus("ERROR");
+        setWahaError("Não foi possível obter o QR Code após 40 segundos. Verifique se o WAHA está ativo no Railway e tente novamente.");
+        return;
+      }
+      checkWaha(false);
+    }, 4000);
     return () => clearInterval(interval);
   }, [showQr, checkWaha]);
 
   function handleConnect() {
+    pollCount.current = 0;
+    setWahaError(null);
     setShowQr(true);
     checkWaha(true);
   }
