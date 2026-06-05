@@ -191,11 +191,12 @@ export function AutomationsList({ initialRules, services, globalStats }: Props) 
   const [saving, setSaving]           = useState(false);
   const [deleting, setDeleting]       = useState<string | null>(null);
   const [toggling, setToggling]       = useState<string | null>(null);
+  const [planError, setPlanError]     = useState<string | null>(null);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  function openCreate() { setEditing(null); setModalOpen(true); }
-  function openEdit(rule: AutomationRule) { setEditing(rule); setModalOpen(true); }
+  function openCreate() { setEditing(null); setPlanError(null); setModalOpen(true); }
+  function openEdit(rule: AutomationRule) { setEditing(rule); setPlanError(null); setModalOpen(true); }
   function closeModal() { setModalOpen(false); setEditing(null); }
 
   // ── Save (create or update) ────────────────────────────────────────────────
@@ -222,6 +223,10 @@ export function AutomationsList({ initialRules, services, globalStats }: Props) 
             )
           );
           closeModal();
+        } else {
+          const body = await res.json().catch(() => ({}));
+          setPlanError(body.error ?? "Erro ao salvar regra.");
+          closeModal();
         }
       } else {
         // Create
@@ -233,6 +238,10 @@ export function AutomationsList({ initialRules, services, globalStats }: Props) 
         if (res.ok) {
           const created = await res.json();
           setRules((prev) => [...prev, created]);
+          closeModal();
+        } else {
+          const body = await res.json().catch(() => ({}));
+          setPlanError(body.error ?? "Erro ao salvar regra.");
           closeModal();
         }
       }
@@ -307,6 +316,14 @@ export function AutomationsList({ initialRules, services, globalStats }: Props) 
           </CardContent>
         </Card>
       </div>
+
+      {/* Erro de plano */}
+      {planError && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 flex items-start justify-between gap-3">
+          <span>{planError}</span>
+          <button onClick={() => setPlanError(null)} className="shrink-0 text-amber-500 hover:text-amber-700 font-bold leading-none">×</button>
+        </div>
+      )}
 
       {/* Header + action */}
       <div className="flex items-center justify-between">

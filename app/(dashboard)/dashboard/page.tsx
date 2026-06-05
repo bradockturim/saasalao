@@ -5,12 +5,18 @@ import { StatsCards } from "@/components/dashboard/stats-cards";
 import { TodayAppointments, type TodayAppointmentItem } from "@/components/dashboard/today-appointments";
 import { AppointmentsBarChart } from "@/components/dashboard/appointments-bar-chart";
 import { ServicesPieChart } from "@/components/dashboard/services-pie-chart";
+import { PLAN_LIMITS, PLAN_NAMES, type PlanKey } from "@/lib/plans";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const session = await requireAuth();
   const salonId = session.user.salonId;
+
+  const salonPlanData = await db.salon.findUnique({
+    where: { id: salonId },
+    select: { plan: true },
+  });
 
   // ── Date boundaries ───────────────────────────────────────────────────────
   const now = new Date();
@@ -250,6 +256,12 @@ export default async function DashboardPage() {
     services: apt.services,
   }));
 
+  // ── Plano e uso do mês ───────────────────────────────────────────────────
+  const plan = (salonPlanData?.plan ?? "FREE") as PlanKey;
+  const aptLimit = PLAN_LIMITS[plan].appointmentsPerMonth;
+  const usagePercent = aptLimit === Infinity ? 0 : Math.min(Math.round((appointmentsMonth / aptLimit) * 100), 100);
+  const WA_UPGRADE = "https://wa.me/5522999690405?text=" + encodeURIComponent("Olá! Quero fazer upgrade do meu plano no SaaSAlão.");
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
@@ -262,6 +274,42 @@ export default async function DashboardPage() {
             {session.user.salonName}
           </span>
         </p>
+      </div>
+
+      {/* Uso do plano */}
+      <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex items-center gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold text-gray-600">
+              Plano {PLAN_NAMES[plan]}
+              {aptLimit === Infinity ? " · Agendamentos ilimitados" : ""}
+            </span>
+            {aptLimit !== Infinity && (
+              <span className={`text-xs font-medium ${usagePercent >= 90 ? "text-red-600" : "text-gray-500"}`}>
+                {appointmentsMonth} / {aptLimit} agendamentos este mês
+              </span>
+            )}
+          </div>
+          {aptLimit !== Infinity && (
+            <div className="w-full bg-gray-100 rounded-full h-1.5">
+              <div
+                className={`h-1.5 rounded-full transition-all ${usagePercent >= 90 ? "bg-red-500" : usagePercent >= 70 ? "bg-amber-400" : "bg-green-500"}`}
+                style={{ width: `${usagePercent}%` }}
+              />
+            </div>
+          )}
+        </div>
+        {aptLimit !== Infinity && usagePercent >= 70 && (
+          <a
+            href={WA_UPGRADE}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+            style={{ backgroundColor: "#C4476F" }}
+          >
+            Fazer upgrade
+          </a>
+        )}
       </div>
 
       {/* Stats row */}

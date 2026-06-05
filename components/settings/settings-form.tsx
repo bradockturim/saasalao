@@ -6,6 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { WorkingHoursForm } from "@/components/settings/working-hours-form";
 import { WhatsAppCard } from "@/components/settings/whatsapp-card";
+import { MessageCircle, HelpCircle } from "lucide-react";
+
+const WA_SUPPORT  = "https://wa.me/5522999690405?text=" + encodeURIComponent("Olá! Preciso de ajuda com o SaaSAlão.");
+const WA_CANCEL   = "https://wa.me/5522999690405?text=" + encodeURIComponent("Olá! Quero solicitar o cancelamento da minha conta no SaaSAlão.");
 
 type Salon = {
   id: string;
@@ -207,6 +211,40 @@ export function SettingsForm({ salon }: { salon: Salon }) {
         initialNotifyNew={salon.whatsappNotifyNew}
         initialDailySummary={salon.whatsappDailySummary}
       />
+
+      {/* Suporte e conta */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <HelpCircle className="w-4 h-4 text-gray-500" />
+            <h2 className="font-semibold text-gray-900">Suporte e conta</h2>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-gray-500">
+            Precisa de ajuda ou tem alguma dúvida? Nosso time está disponível no WhatsApp.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <a
+              href={WA_SUPPORT}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <MessageCircle className="w-4 h-4 text-green-600" />
+              Falar com suporte
+            </a>
+            <a
+              href={WA_CANCEL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl text-red-600 hover:bg-red-50 transition-colors"
+            >
+              Solicitar cancelamento de conta
+            </a>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

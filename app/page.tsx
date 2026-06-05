@@ -374,8 +374,8 @@ export default async function HomePage() {
                 items: [
                   "Profissionais ilimitados",
                   "Agendamentos ilimitados",
-                  "Múltiplas unidades",
-                  "Relatórios por unidade",
+                  "Múltiplas unidades (em breve)",
+                  "Relatórios por unidade (em breve)",
                   "Suporte prioritário",
                   "Onboarding personalizado",
                 ],
