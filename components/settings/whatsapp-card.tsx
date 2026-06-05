@@ -54,8 +54,8 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialD
       setQrCode(data.qr ?? null);
       setWahaError(data.error ?? null);
 
-      // Quando o QR aparece, reseta o contador — aguarda o scan sem timeout
-      if (newStatus === "SCAN_QR_CODE") {
+      // Reseta contador em qualquer estado de progresso (não para antes de conectar)
+      if (["SCAN_QR_CODE", "STARTING", "OPENING", "PAIRING"].includes(newStatus)) {
         pollCount.current = 0;
       }
 
@@ -74,20 +74,20 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialD
     checkWaha(true);
   }, [checkWaha]);
 
-  // Poll silencioso a cada 4s — para após 10 tentativas sem SCAN_QR_CODE
+  // Poll silencioso — 2s quando QR visível, para após 15 tentativas sem progresso
   useEffect(() => {
     if (!showQr) return;
     pollCount.current = 0;
     const interval = setInterval(() => {
       pollCount.current += 1;
-      if (pollCount.current >= 10) {
+      if (pollCount.current >= 15) {
         clearInterval(interval);
         setWahaStatus("ERROR");
-        setWahaError("Não foi possível obter o QR Code após 40 segundos. Verifique se o WAHA está ativo no Railway e tente novamente.");
+        setWahaError("Tempo esgotado. Clique em 'Tentar novamente' ou escaneie o QR novamente.");
         return;
       }
       checkWaha(false);
-    }, 4000);
+    }, 2000);
     return () => clearInterval(interval);
   }, [showQr, checkWaha]);
 
