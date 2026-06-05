@@ -49,11 +49,17 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialD
         return;
       }
 
-      setWahaStatus(data.status ?? "ERROR");
+      const newStatus = data.status ?? "ERROR";
+      setWahaStatus(newStatus);
       setQrCode(data.qr ?? null);
       setWahaError(data.error ?? null);
 
-      if (data.status === "WORKING") {
+      // Quando o QR aparece, reseta o contador — aguarda o scan sem timeout
+      if (newStatus === "SCAN_QR_CODE") {
+        pollCount.current = 0;
+      }
+
+      if (newStatus === "WORKING") {
         setShowQr(false);
         setWahaError(null);
       }
@@ -214,13 +220,22 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialD
                     <p className="text-xs text-gray-400 text-center">
                       WhatsApp → Aparelhos conectados → Conectar aparelho
                     </p>
-                    <button
-                      onClick={() => { setQrRefresh(Date.now()); checkWaha(); }}
-                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      Atualizar QR Code
-                    </button>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={() => { setQrRefresh(Date.now()); checkWaha(false); }}
+                        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Atualizar QR
+                      </button>
+                      <button
+                        onClick={() => { pollCount.current = 0; checkWaha(true); }}
+                        className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline"
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        Já escaneei
+                      </button>
+                    </div>
                   </>
                 ) : wahaStatus === "ERROR" ? (
                   <div className="flex flex-col items-center gap-3 py-2 text-center">
