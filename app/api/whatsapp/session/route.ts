@@ -3,7 +3,7 @@ import { getSession } from "@/lib/session";
 
 const WAHA_URL = process.env.WAHA_URL?.replace(/\/$/, "");
 const WAHA_API_KEY = process.env.WAHA_API_KEY;
-const SESSION = process.env.WAHA_SESSION ?? "default";
+const SESSION = (process.env.WAHA_SESSION ?? "default").trim();
 
 function wahaHeaders() {
   return {

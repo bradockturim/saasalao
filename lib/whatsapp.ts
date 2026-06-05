@@ -38,7 +38,7 @@ export async function sendWhatsAppMessage(
 ): Promise<SendResult> {
   const wahaUrl    = process.env.WAHA_URL;
   const apiKey     = process.env.WAHA_API_KEY;
-  const session    = process.env.WAHA_SESSION ?? "default";
+  const session    = (process.env.WAHA_SESSION ?? "default").trim();
 
   if (!wahaUrl || !apiKey) {
     return {
