@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { PLAN_LIMITS, PLAN_NAMES, type PlanKey } from "@/lib/plans";
 
 const createStaffSchema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
@@ -47,6 +48,27 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = createStaffSchema.parse(body);
+
+    // ── Valida limite de profissionais do plano ───────────────────────────────
+    const salon = await db.salon.findUnique({
+      where: { id: session.user.salonId },
+      select: { plan: true },
+    });
+    const plan = (salon?.plan ?? "FREE") as PlanKey;
+    const limit = PLAN_LIMITS[plan].staff;
+    if (limit !== Infinity) {
+      const activeCount = await db.employee.count({
+        where: { salonId: session.user.salonId, isActive: true },
+      });
+      if (activeCount >= limit) {
+        return NextResponse.json(
+          {
+            error: `Seu plano ${PLAN_NAMES[plan]} permite até ${limit} profissional${limit > 1 ? "is" : ""}. Faça upgrade para adicionar mais.`,
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     const staff = await db.employee.create({
       data: {

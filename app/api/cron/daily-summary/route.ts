@@ -16,15 +16,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Amanhã em horário de Brasília
+  // Amanhã em horário de Brasília (UTC-3, sem horário de verão desde 2019)
+  // Usa en-CA para obter YYYY-MM-DD no timezone correto
   const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const dayStart = new Date(tomorrow);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(tomorrow);
-  dayEnd.setHours(23, 59, 59, 999);
+  const todayBRT = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(now);
+  // 00:00 BRT = 03:00 UTC — avança para amanhã
+  const dayStart = new Date(todayBRT + "T03:00:00Z");
+  dayStart.setUTCDate(dayStart.getUTCDate() + 1);
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
 
   const salons = await db.salon.findMany({
     where: { isActive: true, whatsappDailySummary: true, whatsappNumber: { not: null } },
@@ -54,7 +53,7 @@ export async function POST(req: NextRequest) {
     const dateLabel = new Intl.DateTimeFormat("pt-BR", {
       weekday: "long", day: "2-digit", month: "long",
       timeZone: "America/Sao_Paulo",
-    }).format(tomorrow);
+    }).format(dayStart);
 
     if (appointments.length === 0) {
       const message =

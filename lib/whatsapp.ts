@@ -59,7 +59,7 @@ export async function sendWhatsAppMessage(
 
   async function trySend(url: string, body: object): Promise<SendResult> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
+    const timer = setTimeout(() => controller.abort(), 25000);
 
     try {
       const res = await fetch(url, {
@@ -88,7 +88,7 @@ export async function sendWhatsAppMessage(
     } catch (err) {
       clearTimeout(timer);
       if (err instanceof Error && err.name === "AbortError")
-        return { ok: false, error: "Timeout: WAHA não respondeu em 12 segundos" };
+        return { ok: false, error: "Timeout: WAHA não respondeu em 25 segundos" };
       return { ok: false, error: err instanceof Error ? err.message : "Erro de rede" };
     }
   }

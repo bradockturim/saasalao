@@ -22,11 +22,14 @@ export async function POST(req: NextRequest) {
 
   const now = new Date();
 
-  // ── Fetch pending items ─────────────────────────────────────────────────────
+  // ── Fetch pending + retry failed (últimos 7 dias) ──────────────────────────
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const pending = await db.automationQueue.findMany({
     where: {
-      status:      "PENDING",
-      scheduledAt: { lte: now },
+      OR: [
+        { status: "PENDING", scheduledAt: { lte: now } },
+        { status: "FAILED",  scheduledAt: { gte: sevenDaysAgo, lte: now } },
+      ],
     },
     include: {
       client:  { select: { name: true, phone: true } },

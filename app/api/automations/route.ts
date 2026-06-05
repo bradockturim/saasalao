@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { PLAN_FEATURES, PLAN_NAMES, type PlanKey } from "@/lib/plans";
 
 const createSchema = z.object({
   serviceId:       z.string().min(1),
@@ -73,6 +74,21 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = createSchema.parse(body);
+
+    // ── Valida se o plano tem acesso a automações ─────────────────────────────
+    const salon = await db.salon.findUnique({
+      where: { id: session.user.salonId },
+      select: { plan: true },
+    });
+    const plan = (salon?.plan ?? "FREE") as PlanKey;
+    if (!PLAN_FEATURES[plan].automations) {
+      return NextResponse.json(
+        {
+          error: `Automações de follow-up estão disponíveis apenas no plano Pro ou superior. Seu plano atual é ${PLAN_NAMES[plan]}.`,
+        },
+        { status: 403 }
+      );
+    }
 
     // Validate service belongs to salon
     const service = await db.service.findFirst({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { PLAN_LIMITS, PLAN_NAMES, type PlanKey } from "@/lib/plans";
 
 // ─── Shared conflict helper ───────────────────────────────────────────────────
 
@@ -91,6 +92,36 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = createSchema.parse(body);
+
+    // ── Valida limite de agendamentos do plano ───────────────────────────────
+    const salon = await db.salon.findUnique({
+      where: { id: session.user.salonId },
+      select: { plan: true },
+    });
+    const plan = (salon?.plan ?? "FREE") as PlanKey;
+    const aptLimit = PLAN_LIMITS[plan].appointmentsPerMonth;
+    if (aptLimit !== Infinity) {
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      const monthEnd = new Date(monthStart);
+      monthEnd.setMonth(monthEnd.getMonth() + 1);
+      const countThisMonth = await db.appointment.count({
+        where: {
+          salonId:  session.user.salonId,
+          startsAt: { gte: monthStart, lt: monthEnd },
+          status:   { notIn: ["CANCELLED", "NO_SHOW"] },
+        },
+      });
+      if (countThisMonth >= aptLimit) {
+        return NextResponse.json(
+          {
+            error: `Limite de ${aptLimit} agendamentos/mês do plano ${PLAN_NAMES[plan]} atingido. Faça upgrade para continuar.`,
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     // ── Service ──────────────────────────────────────────────────────────────
     const service = await db.service.findFirst({

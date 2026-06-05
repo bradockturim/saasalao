@@ -183,7 +183,7 @@ export default async function HomePage() {
               {
                 icon: MessageCircle,
                 title: "WhatsApp automático",
-                desc: "Confirmações de agendamento e lembretes 24h e 2h antes — tudo no WhatsApp.",
+                desc: "Confirmações de agendamento e lembretes 24h e 1h antes — tudo no WhatsApp.",
                 color: "#25D366",
               },
               {
@@ -288,7 +288,7 @@ export default async function HomePage() {
                   {[
                     "Confirmação ao agendar",
                     "Lembrete 24h antes",
-                    "Lembrete 2h antes",
+                    "Lembrete 1h antes",
                     "Resumo da agenda às 20h",
                   ].map((item) => (
                     <li key={item} className="flex items-center gap-2.5 text-sm" style={{ color: "rgba(255,255,255,0.8)" }}>
@@ -360,7 +360,7 @@ export default async function HomePage() {
                   "Resumo diário às 20h",
                   "Automações de follow-up",
                   "Perfil capilar personalizado",
-                  "Relatórios completos",
+                  "Dashboard com relatórios",
                 ],
                 missing: [],
                 cta: "Tenho interesse no plano Pro",
@@ -463,11 +463,11 @@ export default async function HomePage() {
               },
               {
                 q: "Posso cancelar a qualquer momento?",
-                a: "Sim. Sem multa, sem fidelidade. Se não gostar, cancela com um clique e seus dados ficam disponíveis por 30 dias.",
+                a: "Sim. Sem multa, sem fidelidade. Se não gostar, entre em contato e cancelamos sem burocracia.",
               },
               {
                 q: "Funciona para salão com mais de uma profissional?",
-                a: "Sim. No plano Pro você adiciona profissionais ilimitadas, cada uma com sua própria agenda e disponibilidade.",
+                a: "Sim. No plano Pro você adiciona até 5 profissionais, cada uma com sua própria agenda e disponibilidade. No Premium, ilimitado.",
               },
             ].map((item) => (
               <details key={item.q} className="group rounded-2xl border p-6 cursor-pointer" style={{ borderColor: "#EDD5DF", backgroundColor: "#fff" }}>

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { sendWhatsAppMessage, formatPhoneForWhatsApp } from "@/lib/whatsapp";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { PLAN_LIMITS, type PlanKey } from "@/lib/plans";
 
 // ─── Conflict detection helpers ──────────────────────────────────────────────
 
 type AptForConflict = { startsAt: Date; endsAt: Date; services: { activeTime: number | null }[] };
 
-/** Returns the end of the professional's active window.
- *  For concurrent services (e.g. highlights), the professional is free after activeTime minutes. */
 function profEndsAt(apt: AptForConflict): Date {
   const times = apt.services.map((s) => s.activeTime).filter((t): t is number => t != null);
   if (times.length === 0) return apt.endsAt;
@@ -51,6 +50,7 @@ export async function POST(
     select: {
       id: true,
       name: true,
+      plan: true,
       whatsappNumber: true,
       whatsappNotifyNew: true,
     },
@@ -60,6 +60,30 @@ export async function POST(
   try {
     const body = await req.json();
     const data = schema.parse(body);
+
+    // ─── Valida limite de agendamentos do plano ──────────────────────────────
+    const plan = (salon.plan ?? "FREE") as PlanKey;
+    const aptLimit = PLAN_LIMITS[plan].appointmentsPerMonth;
+    if (aptLimit !== Infinity) {
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      const monthEnd = new Date(monthStart);
+      monthEnd.setMonth(monthEnd.getMonth() + 1);
+      const countThisMonth = await db.appointment.count({
+        where: {
+          salonId:  salon.id,
+          startsAt: { gte: monthStart, lt: monthEnd },
+          status:   { notIn: ["CANCELLED", "NO_SHOW"] },
+        },
+      });
+      if (countThisMonth >= aptLimit) {
+        return NextResponse.json(
+          { error: "Este salão atingiu o limite de agendamentos do mês. Entre em contato com o salão." },
+          { status: 403 }
+        );
+      }
+    }
 
     // ─── Service validation ──────────────────────────────────────────────────
     const service = await db.service.findFirst({
@@ -71,7 +95,7 @@ export async function POST(
     // ─── Resolve price + duration ────────────────────────────────────────────
     let price           = service.price;
     let durationMinutes = service.duration;
-    const activeTime    = service.activeTime ?? null; // professional active minutes
+    const activeTime    = service.activeTime ?? null;
     if (data.hairLength && service.hasPricingByLength) {
       const pricing = service.pricings.find((p) => p.hairLength === data.hairLength);
       if (pricing) {
@@ -132,7 +156,6 @@ export async function POST(
       const dayStart = new Date(data.date + "T00:00:00");
       const dayEnd   = new Date(data.date + "T23:59:59");
 
-      // Load existing appointments with activeTime for all candidates in one query
       const allApts = await db.appointment.findMany({
         where: {
           salonId: salon.id,
@@ -148,7 +171,6 @@ export async function POST(
         },
       });
 
-      // Sort candidates by fewest appointments (load balancing)
       const countMap = new Map<string, number>();
       for (const c of candidates) countMap.set(c.id, 0);
       for (const a of allApts) countMap.set(a.employeeId, (countMap.get(a.employeeId) ?? 0) + 1);
@@ -180,7 +202,6 @@ export async function POST(
         return NextResponse.json({ error: "Profissional não encontrado" }, { status: 404 });
       }
 
-      // Load existing appointments in the window for this employee
       const windowStart = new Date(startsAt); windowStart.setHours(0, 0, 0, 0);
       const windowEnd   = new Date(startsAt); windowEnd.setHours(23, 59, 59, 999);
 
@@ -258,7 +279,7 @@ export async function POST(
       db.automationQueue.updateMany({
         where: {
           id:       data.automationRef,
-          clientId: client.id, // safety: only update if client matches
+          clientId: client.id,
           status:   "SENT",
           convertedAt: null,
         },
@@ -266,53 +287,61 @@ export async function POST(
       }).catch((err) => console.error("[automation conversion]", err));
     }
 
-    // ─── WhatsApp notification (fire-and-forget) ─────────────────────────────
+    // ─── WhatsApp notifications (fire-and-forget) ────────────────────────────
+    const baseUrl =
+      process.env.NEXTAUTH_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+
+    const dateLabel = new Intl.DateTimeFormat("pt-BR", {
+      weekday: "long", day: "2-digit", month: "long",
+      timeZone: "America/Sao_Paulo",
+    }).format(startsAt);
+
+    const timeLabel = startsAt.toLocaleTimeString("pt-BR", {
+      hour: "2-digit", minute: "2-digit",
+      timeZone: "America/Sao_Paulo",
+    });
+
+    const serviceNames = appointment.services.map((s) => s.service.name).join(", ");
+
+    // Notificação para o salão
     if (salon.whatsappNotifyNew && salon.whatsappNumber) {
-      const dateLabel = new Intl.DateTimeFormat("pt-BR", {
-        weekday: "long",
-        day:     "2-digit",
-        month:   "long",
-      }).format(startsAt);
-
-      const timeLabel = startsAt.toLocaleTimeString("pt-BR", {
-        hour:   "2-digit",
-        minute: "2-digit",
-      });
-
-      const serviceNames = appointment.services
-        .map((s) => s.service.name)
-        .join(", ");
-
       const virginHairLine =
-        data.virginHair === true  ? `🌿 *Cabelo virgem:* Sim
-` :
-        data.virginHair === false ? `🌿 *Cabelo virgem:* Não (já tratado quimicamente)
-` :
+        data.virginHair === true  ? `🌿 *Cabelo virgem:* Sim\n` :
+        data.virginHair === false ? `🌿 *Cabelo virgem:* Não (já tratado quimicamente)\n` :
         "";
 
-      const message =
-        `📅 *Novo agendamento — ${salon.name}*
-
-` +
-        `👤 *Cliente:* ${appointment.client.name}
-` +
-        `📞 *Telefone:* ${appointment.client.phone}
-` +
-        `✂️ *Serviço:* ${serviceNames}
-` +
-        `👩‍💼 *Profissional:* ${appointment.employee.name}
-` +
-        `🗓️ *Data:* ${dateLabel}
-` +
-        `🕐 *Horário:* ${timeLabel}
-` +
+      const salonMsg =
+        `📅 *Novo agendamento — ${salon.name}*\n\n` +
+        `👤 *Cliente:* ${appointment.client.name}\n` +
+        `📞 *Telefone:* ${appointment.client.phone}\n` +
+        `✂️ *Serviço:* ${serviceNames}\n` +
+        `👩‍💼 *Profissional:* ${appointment.employee.name}\n` +
+        `🗓️ *Data:* ${dateLabel}\n` +
+        `🕐 *Horário:* ${timeLabel}\n` +
         virginHairLine +
         `💰 *Valor:* R$ ${appointment.totalPrice.toFixed(2).replace(".", ",")}`;
 
-      sendWhatsAppMessage(salon.whatsappNumber, message).catch((err) =>
-        console.error("[WhatsApp notify]", err)
+      sendWhatsAppMessage(salon.whatsappNumber, salonMsg).catch((err) =>
+        console.error("[WhatsApp salon notify]", err)
       );
     }
+
+    // Confirmação para o cliente
+    const myAptsLink = `${baseUrl}/book/${params.salonSlug}/minha-conta`;
+    const clientMsg =
+      `✅ *Agendamento confirmado!*\n\n` +
+      `Olá, ${appointment.client.name}! Seu horário em *${salon.name}* está confirmado:\n\n` +
+      `✂️ *Serviço:* ${serviceNames}\n` +
+      `👩‍💼 *Profissional:* ${appointment.employee.name}\n` +
+      `🗓️ *Data:* ${dateLabel}\n` +
+      `🕐 *Horário:* ${timeLabel}\n` +
+      `💰 *Valor:* R$ ${appointment.totalPrice.toFixed(2).replace(".", ",")}\n\n` +
+      `_Precisa cancelar? Acesse: ${myAptsLink}_`;
+
+    sendWhatsAppMessage(appointment.client.phone, clientMsg).catch((err) =>
+      console.error("[WhatsApp client confirm]", err)
+    );
 
     return NextResponse.json(appointment, { status: 201 });
   } catch (error) {

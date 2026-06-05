@@ -3,13 +3,13 @@ import { db } from "@/lib/db";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 /**
- * Cron de lembretes — idealmente executado a cada hora (requer plano Vercel Pro).
- * No plano Hobby, configure para rodar 1x/dia cedo (ex: 06:00 UTC).
+ * Cron de lembretes — roda a cada hora (vercel.json: "0 * * * *", requer Vercel Pro).
  *
- * Envia:
+ * A cada execução envia:
  *   - Lembrete 24h antes: appointments que começam entre 23h e 25h a partir de agora
- *   - Lembrete  2h antes: appointments que começam entre 1h50 e 2h10 a partir de agora
+ *   - Lembrete  1h antes: appointments que começam entre 50min e 70min a partir de agora
  *
+ * Duplicatas são evitadas via AppointmentReminder (unique por appointmentId + type).
  * Protegido por Authorization: Bearer <CRON_SECRET>.
  */
 export async function POST(req: NextRequest) {
@@ -23,11 +23,12 @@ export async function POST(req: NextRequest) {
 
   const now = new Date();
 
-  // Windows de busca (±10min de margem)
+  // Janela 24h: appointments que começam entre 23h e 25h a partir de agora
   const w24Start = new Date(now.getTime() + 23 * 60 * 60 * 1000);
   const w24End   = new Date(now.getTime() + 25 * 60 * 60 * 1000);
-  const w2Start  = new Date(now.getTime() + 50 * 60 * 1000);
-  const w2End    = new Date(now.getTime() + 70 * 60 * 1000);
+  // Janela 1h: appointments que começam entre 50min e 70min a partir de agora
+  const w1Start  = new Date(now.getTime() + 50 * 60 * 1000);
+  const w1End    = new Date(now.getTime() + 70 * 60 * 1000);
 
   // Busca appointments nos dois janelas que ainda não têm lembrete enviado
   const [apts24, apts2] = await Promise.all([
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     }),
     db.appointment.findMany({
       where: {
-        startsAt:  { gte: w2Start, lte: w2End },
+        startsAt:  { gte: w1Start, lte: w1End },
         status:    { notIn: ["CANCELLED", "NO_SHOW", "COMPLETED"] },
         reminders: { none: { type: "HOURS_1" } },
       },
