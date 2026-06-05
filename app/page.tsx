@@ -327,24 +327,25 @@ export default async function HomePage() {
           <div className="grid sm:grid-cols-3 gap-6">
             {[
               {
-                name: "Gratuito",
-                price: "R$0",
-                period: "14 dias grátis",
-                desc: "Para quem está começando",
+                name: "Essencial",
+                price: "R$79",
+                period: "/mês",
+                desc: "Para salões que estão começando",
                 highlight: false,
                 items: [
-                  "1 profissional",
-                  "Até 50 agendamentos/mês",
+                  "2 profissionais",
+                  "Agendamentos ilimitados",
                   "Link de agendamento",
                   "Painel de gestão",
+                  "WhatsApp automático",
                   "Cadastro de clientes",
                 ],
-                missing: ["WhatsApp automático", "Automações", "Multi-profissional"],
-                cta: "Criar conta grátis",
+                missing: ["Automações de follow-up", "Multi-profissional ilimitado"],
+                cta: "Começar 14 dias grátis",
               },
               {
                 name: "Pro",
-                price: "R$79",
+                price: "R$129",
                 period: "/mês",
                 desc: "Para salões em crescimento",
                 highlight: true,
@@ -364,7 +365,7 @@ export default async function HomePage() {
                 name: "Premium",
                 price: "R$199",
                 period: "/mês",
-                desc: "Para redes e franquias",
+                desc: "Para redes e múltiplas unidades",
                 highlight: false,
                 items: [
                   "Tudo do Pro",
