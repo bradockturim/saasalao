@@ -37,3 +37,6 @@ next-env.d.ts
 
 .vercel
 .env*.local
+scripts/screenshots/
+temp_docx/
+extracted_content.txt
