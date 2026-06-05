@@ -19,7 +19,7 @@ interface Props {
 }
 
 type TestStatus = "idle" | "loading" | "ok" | "error";
-type WahaStatus = "idle" | "loading" | "WORKING" | "SCAN_QR_CODE" | "STARTING" | "STOPPED" | "ERROR" | "NOT_CONFIGURED";
+type WahaStatus = "idle" | "loading" | "waking" | "WORKING" | "SCAN_QR_CODE" | "STARTING" | "STOPPED" | "ERROR" | "NOT_CONFIGURED";
 
 export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialDailySummary = false }: Props) {
   const [phone,         setPhone]         = useState(initialPhone ? applyPhoneMask(initialPhone) : "");
@@ -91,10 +91,17 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialD
     return () => clearInterval(interval);
   }, [showQr, checkWaha]);
 
-  function handleConnect() {
+  async function handleConnect() {
     pollCount.current = 0;
     setWahaError(null);
     setShowQr(true);
+    setWahaStatus("waking");
+
+    // Acorda o Railway antes de pedir o QR (timeout generoso no servidor)
+    try {
+      await fetch("/api/whatsapp/wake");
+    } catch { /* ignora — mesmo assim tenta */ }
+
     checkWaha(true);
   }
 
@@ -256,11 +263,17 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialD
                   <div className="flex flex-col items-center gap-2 py-4">
                     <Loader2 className="w-6 h-6 animate-spin text-primary-400" />
                     <p className="text-sm text-gray-500">
-                      {wahaStatus === "STOPPED" || wahaStatus === "STARTING"
+                      {wahaStatus === "waking"
+                        ? "Acordando servidor..."
+                        : wahaStatus === "STOPPED" || wahaStatus === "STARTING"
                         ? "Iniciando sessão WhatsApp..."
                         : "Aguardando QR Code..."}
                     </p>
-                    <p className="text-xs text-gray-400">Pode levar até 30s se o servidor estiver dormindo</p>
+                    <p className="text-xs text-gray-400">
+                      {wahaStatus === "waking"
+                        ? "O Railway pode levar até 60s para responder"
+                        : "Aguarde o QR aparecer"}
+                    </p>
                   </div>
                 )}
               </div>
