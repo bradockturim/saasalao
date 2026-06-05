@@ -62,8 +62,17 @@ export async function GET() {
       status = s.status;
     }
 
-    // Sessão parada → inicia e re-verifica
-    if (status === "STOPPED") {
+    // Sessão falhou → para e reinicia
+    if (status === "FAILED") {
+      await wfetch(`${WAHA_URL}/api/sessions/${SESSION}/stop`, {
+        method: "POST",
+        headers: wahaHeaders(),
+      }, 8000).catch(() => {});
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+
+    // Sessão parada ou que acabou de ser parada → inicia e re-verifica
+    if (status === "STOPPED" || status === "FAILED") {
       await wfetch(`${WAHA_URL}/api/sessions/${SESSION}/start`, {
         method: "POST",
         headers: wahaHeaders(),
