@@ -329,7 +329,7 @@ export default async function HomePage() {
               {
                 name: "Gratuito",
                 price: "R$0",
-                period: "para sempre",
+                period: "14 dias grátis",
                 desc: "Para quem está começando",
                 highlight: false,
                 items: [
@@ -344,7 +344,7 @@ export default async function HomePage() {
               },
               {
                 name: "Pro",
-                price: "R$49",
+                price: "R$79",
                 period: "/mês",
                 desc: "Para salões em crescimento",
                 highlight: true,
@@ -362,7 +362,7 @@ export default async function HomePage() {
               },
               {
                 name: "Premium",
-                price: "R$99",
+                price: "R$199",
                 period: "/mês",
                 desc: "Para redes e franquias",
                 highlight: false,
