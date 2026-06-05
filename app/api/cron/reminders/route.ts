@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
   // Windows de busca (±10min de margem)
   const w24Start = new Date(now.getTime() + 23 * 60 * 60 * 1000);
   const w24End   = new Date(now.getTime() + 25 * 60 * 60 * 1000);
-  const w2Start  = new Date(now.getTime() +  1 * 60 * 60 * 1000 + 50 * 60 * 1000);
-  const w2End    = new Date(now.getTime() +  2 * 60 * 60 * 1000 + 10 * 60 * 1000);
+  const w2Start  = new Date(now.getTime() + 50 * 60 * 1000);
+  const w2End    = new Date(now.getTime() + 70 * 60 * 1000);
 
   // Busca appointments nos dois janelas que ainda não têm lembrete enviado
   const [apts24, apts2] = await Promise.all([
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       where: {
         startsAt:  { gte: w2Start, lte: w2End },
         status:    { notIn: ["CANCELLED", "NO_SHOW", "COMPLETED"] },
-        reminders: { none: { type: "HOURS_2" } },
+        reminders: { none: { type: "HOURS_1" } },
       },
       include: {
         client:   { select: { name: true, phone: true } },
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
 
     const message =
       `Olá, ${apt.client.name}! 👋\n\n` +
-      `Seu horário em *${apt.salon.name}* é em *2 horas*!\n\n` +
+      `Seu horário em *${apt.salon.name}* é em *1 hora*!\n\n` +
       `✂️ *Serviço:* ${svcNames}\n` +
       `👩‍💼 *Profissional:* ${apt.employee.name}\n` +
       `🕐 *Às:* ${fmtTime(apt.startsAt)}\n\n` +
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
       data: {
         appointmentId: apt.id,
         salonId:       apt.salonId,
-        type:          "HOURS_2",
+        type:          "HOURS_1",
       },
     }).catch(() => {});
 

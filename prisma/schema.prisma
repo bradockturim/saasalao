@@ -375,6 +375,7 @@ enum AutomationQueueStatus {
 enum ReminderType {
   HOURS_24
   HOURS_2
+  HOURS_1
 }
 
 enum HairLength {
