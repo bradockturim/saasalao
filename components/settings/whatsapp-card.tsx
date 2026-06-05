@@ -34,6 +34,7 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialD
   const [qrCode,     setQrCode]     = useState<string | null>(null);
   const [showQr,     setShowQr]     = useState(false);
   const [qrRefresh,  setQrRefresh]  = useState(Date.now());
+  const [wahaError,  setWahaError]  = useState<string | null>(null);
 
   // ─── Busca status da conexão WAHA ────────────────────────────────────────────
   const checkWaha = useCallback(async (showLoading = false) => {
@@ -49,12 +50,15 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialD
 
       setWahaStatus(data.status ?? "ERROR");
       setQrCode(data.qr ?? null);
+      setWahaError(data.error ?? null);
 
       if (data.status === "WORKING") {
         setShowQr(false);
+        setWahaError(null);
       }
     } catch {
       setWahaStatus("ERROR");
+      setWahaError("Erro ao conectar com o servidor WAHA.");
     }
   }, []);
 
@@ -205,10 +209,30 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialD
                       Atualizar QR Code
                     </button>
                   </>
+                ) : wahaStatus === "ERROR" ? (
+                  <div className="flex flex-col items-center gap-3 py-2 text-center">
+                    <WifiOff className="w-6 h-6 text-red-400" />
+                    <p className="text-sm text-red-600 font-medium">Falha na conexão</p>
+                    {wahaError && (
+                      <p className="text-xs text-gray-500 max-w-xs">{wahaError}</p>
+                    )}
+                    <button
+                      onClick={() => { setShowQr(false); setTimeout(handleConnect, 100); }}
+                      className="flex items-center gap-1.5 text-sm text-primary-600 hover:underline font-medium"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      Tentar novamente
+                    </button>
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2 py-4">
                     <Loader2 className="w-6 h-6 animate-spin text-primary-400" />
-                    <p className="text-sm text-gray-500">Iniciando sessão...</p>
+                    <p className="text-sm text-gray-500">
+                      {wahaStatus === "STOPPED" || wahaStatus === "STARTING"
+                        ? "Iniciando sessão WhatsApp..."
+                        : "Aguardando QR Code..."}
+                    </p>
+                    <p className="text-xs text-gray-400">Pode levar até 30s se o servidor estiver dormindo</p>
                   </div>
                 )}
               </div>
