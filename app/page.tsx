@@ -8,6 +8,10 @@ import {
   Bell, Shield, Globe,
 } from "lucide-react";
 
+const WA_BASE = "https://wa.me/5522999690405";
+const waLink = (msg: string) => `${WA_BASE}?text=${encodeURIComponent(msg)}`;
+const WA_DEFAULT = waLink("Olá! Tenho interesse no SaaSAlão para o meu salão.");
+
 export default async function HomePage() {
   const session = await getSession();
   if (session) redirect("/dashboard");
@@ -34,12 +38,12 @@ export default async function HomePage() {
             <Link href="/login" className="text-sm font-medium hover:text-primary-600 transition-colors hidden sm:block" style={{ color: "#5C4A52" }}>
               Entrar
             </Link>
-            <Link href="/register"
+            <a href={WA_DEFAULT} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-white px-4 py-2 rounded-xl transition-all hover:opacity-90"
               style={{ background: "linear-gradient(135deg,#C4476F,#A33258)" }}>
-              Começar grátis
+              Falar com especialista
               <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
+            </a>
           </div>
         </div>
       </nav>
@@ -64,23 +68,23 @@ export default async function HomePage() {
           </h1>
 
           <p className="text-lg sm:text-xl mb-10 max-w-2xl mx-auto leading-relaxed" style={{ color: "#5C4A52" }}>
-            Agendamento online, lembretes automáticos no WhatsApp e gestão completa da sua agenda — tudo em um só lugar, feito para donas de salão no Brasil.
+            Agendamento online, lembretes automáticos no WhatsApp e gestão completa da sua agenda. Feito para donas de salão no Brasil.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-            <Link href="/register"
+            <a href={WA_DEFAULT} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-2 text-base font-semibold text-white px-8 py-3.5 rounded-2xl transition-all hover:opacity-90 shadow-lg"
               style={{ background: "linear-gradient(135deg,#C4476F,#A33258)", boxShadow: "0 8px 24px rgba(163,50,88,0.30)" }}>
-              Criar conta grátis
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link href="/login" className="text-base font-medium px-6 py-3.5 rounded-2xl border transition-all hover:border-primary-300 hover:bg-primary-50" style={{ borderColor: "#EDD5DF", color: "#5C4A52" }}>
-              Já tenho conta
-            </Link>
+              <MessageCircle className="w-4 h-4" />
+              Falar com especialista
+            </a>
+            <a href="#planos" className="text-base font-medium px-6 py-3.5 rounded-2xl border transition-all hover:border-primary-300 hover:bg-primary-50" style={{ borderColor: "#EDD5DF", color: "#5C4A52" }}>
+              Ver planos
+            </a>
           </div>
 
           <p className="mt-5 text-sm" style={{ color: "#A89CA0" }}>
-            Sem cartão de crédito · Configura em 5 minutos
+            Nosso time analisa seu salão e recomenda o plano ideal
           </p>
         </div>
 
@@ -341,7 +345,7 @@ export default async function HomePage() {
                   "Cadastro de clientes",
                 ],
                 missing: ["Automações de follow-up", "Multi-profissional ilimitado"],
-                cta: "Começar 14 dias grátis",
+                cta: "Tenho interesse no plano Essencial",
               },
               {
                 name: "Pro",
@@ -359,7 +363,7 @@ export default async function HomePage() {
                   "Relatórios completos",
                 ],
                 missing: [],
-                cta: "Começar 14 dias grátis",
+                cta: "Tenho interesse no plano Pro",
               },
               {
                 name: "Premium",
@@ -376,7 +380,7 @@ export default async function HomePage() {
                   "API de integração",
                 ],
                 missing: [],
-                cta: "Falar com vendas",
+                cta: "Tenho interesse no plano Premium",
               },
             ].map((plan) => (
               <div
@@ -418,8 +422,9 @@ export default async function HomePage() {
                   ))}
                 </ul>
 
-                <Link href="/register"
-                  className="w-full text-center text-sm font-semibold py-3 rounded-xl transition-all"
+                <a href={waLink(`Olá! ${plan.cta} do SaaSAlão. Pode me ajudar?`)}
+                  target="_blank" rel="noreferrer"
+                  className="w-full text-center text-sm font-semibold py-3 rounded-xl transition-all inline-flex items-center justify-center gap-2"
                   style={plan.highlight ? {
                     background: "linear-gradient(135deg,#C4476F,#A33258)",
                     color: "#fff",
@@ -427,8 +432,9 @@ export default async function HomePage() {
                     border: "1.5px solid #EDD5DF",
                     color: "#A33258",
                   }}>
-                  {plan.cta}
-                </Link>
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  Falar no WhatsApp
+                </a>
               </div>
             ))}
           </div>
@@ -489,14 +495,14 @@ export default async function HomePage() {
             <p className="text-sm mb-8" style={{ color: "rgba(255,255,255,0.6)" }}>
               Crie sua conta grátis e comece a receber agendamentos online ainda hoje.
             </p>
-            <Link href="/register"
+            <a href={WA_DEFAULT} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-2 text-base font-semibold text-white px-8 py-4 rounded-2xl transition-all hover:opacity-90"
               style={{ background: "linear-gradient(135deg,#C4476F,#A33258)", boxShadow: "0 8px 24px rgba(196,71,111,0.40)" }}>
-              Criar conta grátis
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+              <MessageCircle className="w-5 h-5" />
+              Falar com especialista no WhatsApp
+            </a>
             <p className="mt-4 text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Sem cartão de crédito · Cancele quando quiser
+              Nosso time faz o diagnóstico do seu salão e recomenda o plano ideal
             </p>
           </div>
         </div>
@@ -516,7 +522,7 @@ export default async function HomePage() {
           </p>
           <div className="flex gap-4 text-xs" style={{ color: "#A89CA0" }}>
             <Link href="/login" className="hover:text-primary-600">Entrar</Link>
-            <Link href="/register" className="hover:text-primary-600">Cadastrar</Link>
+            <a href={WA_DEFAULT} target="_blank" rel="noreferrer" className="hover:text-primary-600">WhatsApp</a>
           </div>
         </div>
       </footer>
