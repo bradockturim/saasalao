@@ -9,9 +9,9 @@ import {
   Users,
   Scissors,
   Settings,
-  UserCircle,
   UserCheck,
   Zap,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,71 +34,93 @@ interface SidebarProps {
 
 export function Sidebar({ session }: SidebarProps) {
   const pathname = usePathname();
+  const initials = session.user.name
+    ?.split(" ")
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase() ?? "?";
+
+  function NavLink({ href, label, icon: Icon }: { href: string; label: string; icon: React.ElementType }) {
+    const isActive = pathname === href;
+    return (
+      <Link
+        href={href}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
+          isActive
+            ? "bg-primary-500/20 text-primary-300"
+            : "text-white/55 hover:text-white/90 hover:bg-white/[0.06]"
+        )}
+      >
+        <Icon className={cn("w-4 h-4 shrink-0", isActive && "text-primary-400")} />
+        {label}
+      </Link>
+    );
+  }
+
+  const adminFiltered = adminItems.filter((item) => item.roles.includes(session.user.role));
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
-            <Scissors className="w-4 h-4 text-white" />
+    <aside className="w-64 flex flex-col" style={{ backgroundColor: "#1A1117" }}>
+      {/* Logo / Salon name */}
+      <div className="px-5 py-5 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+        <div className="flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "linear-gradient(135deg, #D96B8F 0%, #A33258 100%)" }}
+          >
+            <Sparkles className="w-4 h-4 text-white" />
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-gray-900 truncate text-sm">{session.user.salonName}</p>
-            <p className="text-xs text-gray-500 truncate">{session.user.role}</p>
+            <p className="font-display font-bold text-white text-sm leading-tight truncate">
+              {session.user.salonName}
+            </p>
+            <p className="text-[11px] mt-0.5 truncate" style={{ color: "rgba(255,255,255,0.38)" }}>
+              Painel de gestão
+            </p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary-50 text-primary-700"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              )}
-            >
-              <item.icon className="w-4 h-4 shrink-0" />
-              {item.label}
-            </Link>
-          );
-        })}
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        <div className="space-y-0.5">
+          {navItems.map((item) => (
+            <NavLink key={item.href} {...item} />
+          ))}
+        </div>
 
-        {adminItems
-          .filter((item) => item.roles.includes(session.user.role))
-          .map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary-50 text-primary-700"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                )}
-              >
-                <item.icon className="w-4 h-4 shrink-0" />
-                {item.label}
-              </Link>
-            );
-          })}
+        {adminFiltered.length > 0 && (
+          <>
+            <div className="mt-6 mb-2 px-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>
+                Admin
+              </p>
+            </div>
+            <div className="space-y-0.5">
+              {adminFiltered.map((item) => (
+                <NavLink key={item.href} {...item} />
+              ))}
+            </div>
+          </>
+        )}
       </nav>
 
-      <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-            <UserCircle className="w-5 h-5 text-primary-600" />
+      {/* User profile */}
+      <div className="px-4 py-4 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+        <div className="flex items-center gap-3 px-2 py-2 rounded-xl transition-colors hover:bg-white/[0.04] cursor-default">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
+            style={{ backgroundColor: "rgba(196,71,111,0.3)", color: "#E99DB8" }}
+          >
+            {initials}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{session.user.name}</p>
-            <p className="text-xs text-gray-500 truncate">{session.user.email}</p>
+            <p className="text-sm font-medium text-white/90 truncate">{session.user.name}</p>
+            <p className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.38)" }}>
+              {session.user.email}
+            </p>
           </div>
         </div>
       </div>

@@ -10,7 +10,7 @@ export default async function DashboardLayout({
   const session = await requireAuth();
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen" style={{ backgroundColor: "#FDFAF7" }}>
       <Sidebar session={session} />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header session={session} />

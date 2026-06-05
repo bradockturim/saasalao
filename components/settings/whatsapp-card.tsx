@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   MessageCircle, CheckCircle2, XCircle,
-  Send, Lock, ExternalLink,
+  Send, Wifi, WifiOff, Loader2, RefreshCw,
 } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
@@ -18,22 +18,64 @@ interface Props {
 }
 
 type TestStatus = "idle" | "loading" | "ok" | "error";
+type WahaStatus = "idle" | "loading" | "WORKING" | "SCAN_QR_CODE" | "STARTING" | "STOPPED" | "ERROR" | "NOT_CONFIGURED";
 
 export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew }: Props) {
-  const [phone,        setPhone]        = useState(
-    // Exibe com máscara se já estiver salvo (número cru → mascarado)
-    initialPhone ? applyPhoneMask(initialPhone) : ""
-  );
-  const [notifyNew,    setNotifyNew]    = useState(initialNotifyNew);
-  const [saving,       setSaving]       = useState(false);
-  const [savedMsg,     setSavedMsg]     = useState<string | null>(null);
-  const [testStatus,   setTestStatus]   = useState<TestStatus>("idle");
-  const [testMessage,  setTestMessage]  = useState<string | null>(null);
+  const [phone,       setPhone]       = useState(initialPhone ? applyPhoneMask(initialPhone) : "");
+  const [notifyNew,   setNotifyNew]   = useState(initialNotifyNew);
+  const [saving,      setSaving]      = useState(false);
+  const [savedMsg,    setSavedMsg]    = useState<string | null>(null);
+  const [testStatus,  setTestStatus]  = useState<TestStatus>("idle");
+  const [testMessage, setTestMessage] = useState<string | null>(null);
 
-  // ─── Input mask ─────────────────────────────────────────────────────────────
+  const [wahaStatus, setWahaStatus] = useState<WahaStatus>("idle");
+  const [qrCode,     setQrCode]     = useState<string | null>(null);
+  const [showQr,     setShowQr]     = useState(false);
+  const [qrRefresh,  setQrRefresh]  = useState(Date.now());
+
+  // ─── Busca status da conexão WAHA ────────────────────────────────────────────
+  const checkWaha = useCallback(async (showLoading = false) => {
+    if (showLoading) setWahaStatus("loading");
+    try {
+      const res = await fetch("/api/whatsapp/session");
+      const data = await res.json();
+
+      if (!data.configured) {
+        setWahaStatus("NOT_CONFIGURED");
+        return;
+      }
+
+      setWahaStatus(data.status ?? "ERROR");
+      setQrCode(data.qr ?? null);
+
+      if (data.status === "WORKING") {
+        setShowQr(false);
+      }
+    } catch {
+      setWahaStatus("ERROR");
+    }
+  }, []);
+
+  // Verifica ao montar (com loading)
+  useEffect(() => {
+    checkWaha(true);
+  }, [checkWaha]);
+
+  // Poll silencioso a cada 3s enquanto o QR está visível
+  useEffect(() => {
+    if (!showQr) return;
+    const interval = setInterval(() => checkWaha(false), 3000);
+    return () => clearInterval(interval);
+  }, [showQr, checkWaha]);
+
+  function handleConnect() {
+    setShowQr(true);
+    checkWaha(true);
+  }
+
+  // ─── Input mask ──────────────────────────────────────────────────────────────
   function handlePhoneChange(raw: string) {
     setPhone(applyPhoneMask(raw));
-    // Limpa feedback ao editar
     setTestStatus("idle");
     setTestMessage(null);
   }
@@ -42,27 +84,15 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew }: Props)
   async function handleSave() {
     setSaving(true);
     setSavedMsg(null);
-
-    // Salva número sem máscara
     const rawPhone = phone.replace(/\D/g, "") || null;
-
     const res = await fetch(`/api/salons/${salonId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        whatsappNumber: rawPhone,
-        whatsappNotifyNew: notifyNew,
-      }),
+      body: JSON.stringify({ whatsappNumber: rawPhone, whatsappNotifyNew: notifyNew }),
     });
-
     setSaving(false);
-
-    if (res.ok) {
-      setSavedMsg("Salvo com sucesso!");
-      setTimeout(() => setSavedMsg(null), 3000);
-    } else {
-      setSavedMsg("Erro ao salvar. Tente novamente.");
-    }
+    setSavedMsg(res.ok ? "Salvo com sucesso!" : "Erro ao salvar. Tente novamente.");
+    if (res.ok) setTimeout(() => setSavedMsg(null), 3000);
   }
 
   // ─── Test ────────────────────────────────────────────────────────────────────
@@ -73,18 +103,14 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew }: Props)
       setTestMessage("Informe um número válido com DDD antes de testar.");
       return;
     }
-
     setTestStatus("loading");
     setTestMessage(null);
-
     const res = await fetch(`/api/salons/${salonId}/whatsapp/test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone }),
     });
-
     const data = await res.json();
-
     if (res.ok) {
       setTestStatus("ok");
       setTestMessage(`Mensagem enviada para ${data.sentTo} ✅`);
@@ -94,7 +120,8 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew }: Props)
     }
   }
 
-  const hasPhone = phone.replace(/\D/g, "").length >= 10;
+  const hasPhone    = phone.replace(/\D/g, "").length >= 10;
+  const isConnected = wahaStatus === "WORKING";
 
   return (
     <Card>
@@ -103,22 +130,105 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew }: Props)
           <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
             <MessageCircle className="w-4 h-4 text-green-600" />
           </div>
-          <div>
+          <div className="flex-1">
             <h2 className="font-semibold text-gray-900">WhatsApp</h2>
             <p className="text-xs text-gray-500">Receba notificações de agendamentos</p>
           </div>
+          {/* Status badge */}
+          {wahaStatus !== "idle" && wahaStatus !== "NOT_CONFIGURED" && (
+            <div className={cn(
+              "flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full",
+              isConnected
+                ? "bg-green-50 text-green-700"
+                : wahaStatus === "loading"
+                ? "bg-gray-100 text-gray-500"
+                : "bg-red-50 text-red-600"
+            )}>
+              {wahaStatus === "loading" ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : isConnected ? (
+                <Wifi className="w-3 h-3" />
+              ) : (
+                <WifiOff className="w-3 h-3" />
+              )}
+              {wahaStatus === "loading" ? "Verificando..." : isConnected ? "Conectado" : "Desconectado"}
+            </div>
+          )}
         </div>
       </CardHeader>
 
       <CardContent className="space-y-5">
+
+        {/* ── Conexão WhatsApp ────────────────────────────────────────────── */}
+        {wahaStatus !== "NOT_CONFIGURED" && (
+          <div className="space-y-3">
+            {!isConnected && !showQr && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleConnect}
+                className="gap-2 w-full"
+                loading={wahaStatus === "loading"}
+              >
+                <MessageCircle className="w-4 h-4" />
+                Conectar WhatsApp
+              </Button>
+            )}
+
+            {/* QR Code */}
+            {showQr && !isConnected && (
+              <div className="flex flex-col items-center gap-3 p-4 rounded-xl border border-dashed border-gray-200 bg-gray-50">
+                {wahaStatus === "SCAN_QR_CODE" ? (
+                  <>
+                    <p className="text-sm font-medium text-gray-700">
+                      Escaneie com o WhatsApp do celular
+                    </p>
+                    {/* Usa endpoint dedicado que retorna a imagem diretamente */}
+                    <img
+                      src={`/api/whatsapp/qr?t=${Date.now()}`}
+                      alt="QR Code WhatsApp"
+                      width={200}
+                      height={200}
+                      className="rounded-lg"
+                      key={qrRefresh}
+                    />
+                    <p className="text-xs text-gray-400 text-center">
+                      WhatsApp → Aparelhos conectados → Conectar aparelho
+                    </p>
+                    <button
+                      onClick={() => { setQrRefresh(Date.now()); checkWaha(); }}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Atualizar QR Code
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 py-4">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary-400" />
+                    <p className="text-sm text-gray-500">Iniciando sessão...</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Conectado com sucesso */}
+            {isConnected && (
+              <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                WhatsApp conectado e pronto para enviar notificações.
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Número ─────────────────────────────────────────────────────── */}
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-gray-700">
-            Número do WhatsApp da dona
+            Número que receberá as notificações
           </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
-              {/* Flag BR */}
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base select-none">
                 🇧🇷
               </span>
@@ -130,67 +240,60 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew }: Props)
                 placeholder="(21) 99999-9999"
                 maxLength={15}
                 className={cn(
-                  "w-full pl-9 pr-3 py-2 rounded-lg border text-sm",
-                  "focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent",
+                  "w-full pl-9 pr-3 py-2 rounded-xl border text-sm transition-colors",
+                  "focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent",
                   testStatus === "ok"
                     ? "border-green-400 bg-green-50"
                     : testStatus === "error"
                     ? "border-red-300"
-                    : "border-gray-300"
+                    : "border-[#EDD5DF] hover:border-primary-300"
                 )}
               />
             </div>
-
-            {/* Botão Testar */}
             <Button
               type="button"
               variant="secondary"
               size="md"
               onClick={handleTest}
               loading={testStatus === "loading"}
-              disabled={!hasPhone || testStatus === "loading"}
+              disabled={!hasPhone || testStatus === "loading" || !isConnected}
               className="gap-1.5 shrink-0"
             >
               <Send className="w-3.5 h-3.5" />
-              Testar conexão
+              Testar
             </Button>
           </div>
 
-          {/* Feedback do teste */}
           {testStatus !== "idle" && testMessage && (
-            <div
-              className={cn(
-                "flex items-start gap-2 text-xs rounded-lg px-3 py-2 mt-1",
-                testStatus === "ok"
-                  ? "bg-green-50 text-green-700 border border-green-200"
-                  : "bg-red-50 text-red-700 border border-red-200"
-              )}
-            >
-              {testStatus === "ok" ? (
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-px" />
-              ) : (
-                <XCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
-              )}
+            <div className={cn(
+              "flex items-start gap-2 text-xs rounded-xl px-3 py-2 mt-1 border",
+              testStatus === "ok"
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-red-50 text-red-700 border-red-200"
+            )}>
+              {testStatus === "ok"
+                ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-px" />
+                : <XCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
+              }
               <span>{testMessage}</span>
             </div>
           )}
 
-          <p className="text-xs text-gray-400">
-            Número que receberá as notificações. Deve ser um número com WhatsApp ativo.
-          </p>
+          {!isConnected && hasPhone && (
+            <p className="text-xs text-gray-400">
+              Conecte o WhatsApp acima antes de testar o envio.
+            </p>
+          )}
         </div>
 
         {/* ── Toggles ────────────────────────────────────────────────────── */}
-        <div className="space-y-3 border-t border-gray-100 pt-4">
-          {/* Toggle 1 — Novo agendamento */}
+        <div className="space-y-3 border-t pt-4" style={{ borderColor: "#EDD5DF" }}>
           <ToggleRow
             label="Notificar novo agendamento"
             description="Receba uma mensagem quando uma cliente agendar pelo site"
             checked={notifyNew}
             onChange={setNotifyNew}
           />
-
-          {/* Toggle 2 — Resumo diário (backlog: desabilitado) */}
           <ToggleRow
             label="Resumo diário às 20h"
             description="Lista de agendamentos do dia seguinte enviada todo dia às 20h"
@@ -201,41 +304,16 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew }: Props)
           />
         </div>
 
-        {/* ── Aviso Z-API ────────────────────────────────────────────────── */}
-        <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-          <Lock className="w-3.5 h-3.5 shrink-0 mt-px text-amber-500" />
-          <div className="space-y-1">
-            <p className="font-medium">Configuração necessária no servidor</p>
-            <p className="text-amber-700">
-              Para o envio funcionar, adicione{" "}
-              <code className="bg-amber-100 px-1 rounded font-mono">ZAPI_INSTANCE_ID</code> e{" "}
-              <code className="bg-amber-100 px-1 rounded font-mono">ZAPI_TOKEN</code> nas
-              variáveis de ambiente.{" "}
-              <a
-                href="https://app.z-api.io"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-0.5 underline font-medium hover:text-amber-900"
-              >
-                Criar conta Z-API grátis
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </p>
-          </div>
-        </div>
-
         {/* ── Salvar ─────────────────────────────────────────────────────── */}
         <div className="flex items-center gap-3 pt-1">
           <Button type="button" onClick={handleSave} loading={saving}>
             Salvar configurações
           </Button>
           {savedMsg && (
-            <span
-              className={cn(
-                "text-sm font-medium",
-                savedMsg.startsWith("Erro") ? "text-red-600" : "text-green-600"
-              )}
-            >
+            <span className={cn(
+              "text-sm font-medium",
+              savedMsg.startsWith("Erro") ? "text-red-600" : "text-green-600"
+            )}>
               {savedMsg}
             </span>
           )}
@@ -248,12 +326,7 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew }: Props)
 // ─── Toggle row ───────────────────────────────────────────────────────────────
 
 function ToggleRow({
-  label,
-  description,
-  checked,
-  onChange,
-  disabled,
-  badge,
+  label, description, checked, onChange, disabled, badge,
 }: {
   label: string;
   description: string;
@@ -277,11 +350,7 @@ function ToggleRow({
         </div>
         <p className="text-xs text-gray-400 mt-0.5">{description}</p>
       </div>
-      <Toggle
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
-      />
+      <Toggle checked={checked} onChange={onChange} disabled={disabled} />
     </div>
   );
 }

@@ -20,14 +20,6 @@ interface Props {
 }
 
 export function StepEmployee({ employees, selected, onSelect }: Props) {
-  if (employees.length === 0) {
-    return (
-      <p className="text-center text-sm text-gray-500 py-8">
-        Nenhum profissional disponível para este serviço.
-      </p>
-    );
-  }
-
   return (
     <div className="grid grid-cols-2 gap-3">
       {/* ── "Sem preferência" sempre primeiro ── */}

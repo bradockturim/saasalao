@@ -190,8 +190,10 @@ export function BookingWizard({ salon, service, automationRef = null }: Props) {
       dispatch({ type: "SET_EMPLOYEES", employees: emps });
       dispatch({ type: "SET_WORKING_HOURS", hours: salonData.salon?.workingHours ?? [] });
 
-      // Auto-skip professional step when there is exactly 1 employee
-      if (Array.isArray(emps) && emps.length === 1) {
+      // Auto-skip professional step: sem profissionais → "any"; 1 profissional → esse
+      if (Array.isArray(emps) && emps.length === 0) {
+        dispatch({ type: "SELECT_EMPLOYEE", id: "any" });
+      } else if (Array.isArray(emps) && emps.length === 1) {
         dispatch({ type: "SELECT_EMPLOYEE", id: emps[0].id });
       }
     });

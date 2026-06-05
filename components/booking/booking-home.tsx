@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Scissors, MapPin, Phone, CalendarDays } from "lucide-react";
+import { MapPin, Phone, CalendarDays, Scissors } from "lucide-react";
 import { HairSelector, HairProfile } from "@/components/booking/hair-selector";
 import { ServiceCatalog } from "@/components/booking/service-catalog";
 import { cn } from "@/lib/utils";
@@ -73,48 +73,75 @@ export function BookingHome({ salon, services }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: "#FDF5F8" }}>
       {/* Hero header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-lg mx-auto px-4 py-6 flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-primary-600 flex items-center justify-center shrink-0">
+      <div
+        className="border-b shadow-sm"
+        style={{ backgroundColor: "#fff", borderColor: "#F3C8D8" }}
+      >
+        <div className="max-w-lg mx-auto px-4 py-5 flex items-center gap-4">
+          {/* Logo / avatar */}
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden"
+            style={{
+              background: salon.logoUrl
+                ? undefined
+                : "linear-gradient(135deg, #D96B8F 0%, #A33258 100%)",
+            }}
+          >
             {salon.logoUrl ? (
               <Image
                 src={salon.logoUrl}
                 alt={salon.name}
                 width={56}
                 height={56}
-                className="w-14 h-14 rounded-2xl object-cover"
+                className="w-14 h-14 object-cover"
                 priority
               />
             ) : (
-              <Scissors className="w-7 h-7 text-white" />
+              <Scissors className="w-6 h-6 text-white" />
             )}
           </div>
+
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-gray-900 truncate">{salon.name}</h1>
-            <div className="flex items-center gap-3 mt-0.5 text-sm text-gray-500 flex-wrap">
+            <h1
+              className="font-display text-xl font-bold truncate leading-tight"
+              style={{ color: "#1A0D12" }}
+            >
+              {salon.name}
+            </h1>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
               {salon.city && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" />
-                  {salon.city}{salon.state && `, ${salon.state}`}
+                <span
+                  className="flex items-center gap-1 text-xs"
+                  style={{ color: "#5C4A52" }}
+                >
+                  <MapPin className="w-3 h-3" />
+                  {salon.city}
+                  {salon.state && `, ${salon.state}`}
                 </span>
               )}
               {salon.phone && (
-                <span className="flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5" />
+                <span
+                  className="flex items-center gap-1 text-xs"
+                  style={{ color: "#5C4A52" }}
+                >
+                  <Phone className="w-3 h-3" />
                   {salon.phone}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Meus Agendamentos link */}
+          {/* Meus agendamentos */}
           <Link
             href={`/book/${salon.slug}/minha-conta`}
-            className="shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white
-              px-3 py-2 text-xs font-medium text-gray-600 hover:border-primary-300 hover:text-primary-700
-              hover:bg-primary-50 transition-colors"
+            className="shrink-0 flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-all"
+            style={{
+              borderColor: "#F3C8D8",
+              color: "#A33258",
+              backgroundColor: "#FDF4F7",
+            }}
           >
             <CalendarDays className="w-3.5 h-3.5" />
             Meus agendamentos
@@ -124,16 +151,20 @@ export function BookingHome({ salon, services }: Props) {
         {/* Working hours ribbon */}
         {salon.workingHours.some((h) => h.isOpen) && (
           <div className="max-w-lg mx-auto px-4 pb-4">
-            <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
               {salon.workingHours.map((wh) => (
                 <div
                   key={wh.dayOfWeek}
-                  className={cn(
-                    "shrink-0 text-center rounded-lg px-2.5 py-1.5",
-                    wh.isOpen ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-400"
-                  )}
+                  className="shrink-0 text-center rounded-xl px-2.5 py-2"
+                  style={
+                    wh.isOpen
+                      ? { backgroundColor: "#F9E8EF", color: "#A33258" }
+                      : { backgroundColor: "#F4F0F0", color: "#A89CA0" }
+                  }
                 >
-                  <p className="text-[10px] font-bold uppercase">{DAY_SHORT[wh.dayOfWeek]}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide">
+                    {DAY_SHORT[wh.dayOfWeek]}
+                  </p>
                   <p className="text-[10px] mt-0.5">
                     {wh.isOpen ? `${wh.openTime}–${wh.closeTime}` : "Fechado"}
                   </p>
@@ -147,10 +178,9 @@ export function BookingHome({ salon, services }: Props) {
       {/* Main content */}
       <div className="max-w-lg mx-auto px-4 py-6">
         {!hydrated ? (
-          // Skeleton while localStorage is loading
           <div className="space-y-3 animate-pulse">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-gray-200 rounded-2xl" />
+              <div key={i} className="h-24 rounded-2xl" style={{ backgroundColor: "#F3C8D8", opacity: 0.4 }} />
             ))}
           </div>
         ) : screen === "selector" ? (

@@ -1,33 +1,14 @@
 // ─── Phone formatting ─────────────────────────────────────────────────────────
 
-/**
- * Prepara um número de telefone brasileiro para uso na API do WhatsApp.
- *
- * Exemplos:
- *   "(21) 99999-9999"  → "5521999999999"
- *   "021999999999"     → "5521999999999"
- *   "21999999999"      → "5521999999999"
- *   "5521999999999"    → "5521999999999"  (já formatado)
- */
 export function formatPhoneForWhatsApp(phone: string): string {
-  // 1. Remove tudo que não é dígito
   let digits = phone.replace(/\D/g, "");
-
-  // 2. Se começar com 0, remove (DDDs nunca começam com 0 no Brasil)
   if (digits.startsWith("0")) digits = digits.slice(1);
-
-  // 3. Se não começa com 55 (código BR), adiciona
   if (!digits.startsWith("55")) digits = "55" + digits;
-
   return digits;
 }
 
 // ─── Input mask ───────────────────────────────────────────────────────────────
 
-/**
- * Aplica a máscara (XX) XXXXX-XXXX a uma string de entrada.
- * Limita a 11 dígitos (2 DDD + 9 número).
- */
 export function applyPhoneMask(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 11);
   if (digits.length === 0) return "";
@@ -36,7 +17,7 @@ export function applyPhoneMask(value: string): string {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
-// ─── Send message (Z-API) ─────────────────────────────────────────────────────
+// ─── Send message (WAHA) ──────────────────────────────────────────────────────
 
 interface SendResult {
   ok: boolean;
@@ -44,59 +25,84 @@ interface SendResult {
 }
 
 /**
- * Envia uma mensagem de texto via Z-API.
+ * Envia uma mensagem de texto via WAHA (WhatsApp HTTP API).
  *
- * Requer variáveis de ambiente:
- *   ZAPI_INSTANCE_ID  — ID da instância no Z-API
- *   ZAPI_TOKEN        — Token da instância
- *   ZAPI_SECURITY_TOKEN — (opcional) Client-Token de segurança
+ * Variáveis de ambiente necessárias:
+ *   WAHA_URL      — URL pública da instância WAHA (ex: https://xxx.railway.app)
+ *   WAHA_API_KEY  — Chave definida na variável WHATSAPP_API_KEY do WAHA
+ *   WAHA_SESSION  — Nome da sessão (padrão: "default")
  */
 export async function sendWhatsAppMessage(
   to: string,
   message: string
 ): Promise<SendResult> {
-  const instanceId     = process.env.ZAPI_INSTANCE_ID;
-  const token          = process.env.ZAPI_TOKEN;
-  const securityToken  = process.env.ZAPI_SECURITY_TOKEN;
+  const wahaUrl    = process.env.WAHA_URL;
+  const apiKey     = process.env.WAHA_API_KEY;
+  const session    = process.env.WAHA_SESSION ?? "default";
 
-  if (!instanceId || !token) {
+  if (!wahaUrl || !apiKey) {
     return {
       ok: false,
       error:
-        "WhatsApp não configurado. Adicione ZAPI_INSTANCE_ID e ZAPI_TOKEN " +
+        "WhatsApp não configurado. Adicione WAHA_URL e WAHA_API_KEY " +
         "nas variáveis de ambiente do servidor.",
     };
   }
 
-  const phone = formatPhoneForWhatsApp(to);
+  const phone  = formatPhoneForWhatsApp(to);
+  const chatId = `${phone}@c.us`;
 
-  try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (securityToken) headers["Client-Token"] = securityToken;
+  const headers = {
+    "Content-Type": "application/json",
+    "X-Api-Key": apiKey,
+  };
 
-    const res = await fetch(
-      `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`,
-      {
+  async function trySend(url: string, body: object): Promise<SendResult> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+
+    try {
+      const res = await fetch(url, {
         method: "POST",
         headers,
-        body: JSON.stringify({ phone, message }),
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (!res.ok) {
+        let errMsg = `HTTP ${res.status}`;
+        try {
+          const raw = await res.text();
+          try {
+            const data = JSON.parse(raw);
+            errMsg = data?.message ?? data?.error ?? data?.details ?? data?.detail ?? raw.slice(0, 200);
+          } catch {
+            errMsg = raw.slice(0, 200) || errMsg;
+          }
+        } catch { /* ignore */ }
+        return { ok: false, error: errMsg };
       }
-    );
 
-    if (!res.ok) {
-      let errMsg = `HTTP ${res.status}`;
-      try {
-        const body = await res.json();
-        errMsg = body?.message ?? body?.error ?? errMsg;
-      } catch { /* ignore */ }
-      return { ok: false, error: errMsg };
+      return { ok: true };
+    } catch (err) {
+      clearTimeout(timer);
+      if (err instanceof Error && err.name === "AbortError")
+        return { ok: false, error: "Timeout: WAHA não respondeu em 12 segundos" };
+      return { ok: false, error: err instanceof Error ? err.message : "Erro de rede" };
     }
-
-    return { ok: true };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro de rede";
-    return { ok: false, error: msg };
   }
+
+  // Tenta endpoint novo (WAHA v2+), com fallback para legado
+  const result = await trySend(`${wahaUrl}/api/${session}/sendText`, { chatId, text: message });
+  const shouldFallback = !result.ok && (
+    result.error?.includes("404") ||
+    result.error?.includes("Cannot POST") ||
+    result.error?.includes("Timeout") ||
+    result.error?.includes("not found")
+  );
+  if (shouldFallback) {
+    return trySend(`${wahaUrl}/api/sendText`, { session, chatId, text: message });
+  }
+  return result;
 }
