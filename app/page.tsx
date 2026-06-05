@@ -146,7 +146,7 @@ export default async function HomePage() {
       <section className="py-14 border-y" style={{ borderColor: "#F3C8D8", backgroundColor: "#FDF4F7" }}>
         <div className="max-w-4xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
           {[
-            { value: "5 min", label: "para configurar" },
+            { value: "R$0", label: "taxa por agendamento" },
             { value: "24/7", label: "agendamento online" },
             { value: "0%", label: "comissão por agendamento" },
             { value: "∞", label: "clientes cadastrados" },
@@ -247,7 +247,7 @@ export default async function HomePage() {
           <div className="text-center mb-14">
             <p className="text-sm font-semibold mb-3" style={{ color: "#C4476F" }}>Como funciona</p>
             <h2 className="font-display text-4xl sm:text-5xl font-bold mb-4" style={{ color: "#1A0D12" }}>
-              Configure em 5 minutos
+              Simples de configurar
             </h2>
           </div>
 
@@ -325,7 +325,7 @@ export default async function HomePage() {
             <h2 className="font-display text-4xl sm:text-5xl font-bold mb-4" style={{ color: "#1A0D12" }}>
               Simples e transparente
             </h2>
-            <p className="text-lg" style={{ color: "#5C4A52" }}>Sem taxas por agendamento. Sem surpresas na fatura.</p>
+            <p className="text-lg" style={{ color: "#5C4A52" }}>Você paga apenas a mensalidade do plano. <strong>Nenhuma taxa por agendamento</strong>, independente de quantas clientes você atender.</p>
           </div>
 
           <div className="grid sm:grid-cols-3 gap-6">
