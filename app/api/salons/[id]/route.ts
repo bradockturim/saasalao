@@ -11,8 +11,9 @@ const updateSchema = z.object({
   city:    z.string().optional(),
   state:   z.string().max(2).optional(),
   // WhatsApp
-  whatsappNumber:    z.string().optional().nullable(),
-  whatsappNotifyNew: z.boolean().optional(),
+  whatsappNumber:       z.string().optional().nullable(),
+  whatsappNotifyNew:    z.boolean().optional(),
+  whatsappDailySummary: z.boolean().optional(),
   // Client self-service
   cancellationHours: z.number().int().min(1).max(72).optional(),
 });

@@ -28,8 +28,9 @@ model Salon {
   updatedAt   DateTime @updatedAt
 
   // WhatsApp notifications
-  whatsappNumber    String?
-  whatsappNotifyNew Boolean @default(false)
+  whatsappNumber       String?
+  whatsappNotifyNew    Boolean @default(false)
+  whatsappDailySummary Boolean @default(false)
 
   // Client self-service
   cancellationHours Int     @default(24) // min hours before appointment to allow client cancellation

@@ -15,14 +15,16 @@ interface Props {
   salonId: string;
   initialPhone: string | null;
   initialNotifyNew: boolean;
+  initialDailySummary?: boolean;
 }
 
 type TestStatus = "idle" | "loading" | "ok" | "error";
 type WahaStatus = "idle" | "loading" | "WORKING" | "SCAN_QR_CODE" | "STARTING" | "STOPPED" | "ERROR" | "NOT_CONFIGURED";
 
-export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew }: Props) {
-  const [phone,       setPhone]       = useState(initialPhone ? applyPhoneMask(initialPhone) : "");
-  const [notifyNew,   setNotifyNew]   = useState(initialNotifyNew);
+export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew, initialDailySummary = false }: Props) {
+  const [phone,         setPhone]         = useState(initialPhone ? applyPhoneMask(initialPhone) : "");
+  const [notifyNew,     setNotifyNew]     = useState(initialNotifyNew);
+  const [dailySummary,  setDailySummary]  = useState(initialDailySummary);
   const [saving,      setSaving]      = useState(false);
   const [savedMsg,    setSavedMsg]    = useState<string | null>(null);
   const [testStatus,  setTestStatus]  = useState<TestStatus>("idle");
@@ -88,7 +90,7 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew }: Props)
     const res = await fetch(`/api/salons/${salonId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ whatsappNumber: rawPhone, whatsappNotifyNew: notifyNew }),
+      body: JSON.stringify({ whatsappNumber: rawPhone, whatsappNotifyNew: notifyNew, whatsappDailySummary: dailySummary }),
     });
     setSaving(false);
     setSavedMsg(res.ok ? "Salvo com sucesso!" : "Erro ao salvar. Tente novamente.");
@@ -297,10 +299,8 @@ export function WhatsAppCard({ salonId, initialPhone, initialNotifyNew }: Props)
           <ToggleRow
             label="Resumo diário às 20h"
             description="Lista de agendamentos do dia seguinte enviada todo dia às 20h"
-            checked={false}
-            onChange={() => {}}
-            disabled
-            badge="Em breve"
+            checked={dailySummary}
+            onChange={setDailySummary}
           />
         </div>
 

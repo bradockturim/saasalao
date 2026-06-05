@@ -12,6 +12,7 @@ import {
   UserCheck,
   Zap,
   Sparkles,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,9 +31,10 @@ const adminItems = [
 
 interface SidebarProps {
   session: Session;
+  onClose?: () => void;
 }
 
-export function Sidebar({ session }: SidebarProps) {
+export function Sidebar({ session, onClose }: SidebarProps) {
   const pathname = usePathname();
   const initials = session.user.name
     ?.split(" ")
@@ -46,6 +48,7 @@ export function Sidebar({ session }: SidebarProps) {
     return (
       <Link
         href={href}
+        onClick={onClose}
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
           isActive
@@ -62,10 +65,10 @@ export function Sidebar({ session }: SidebarProps) {
   const adminFiltered = adminItems.filter((item) => item.roles.includes(session.user.role));
 
   return (
-    <aside className="w-64 flex flex-col" style={{ backgroundColor: "#1A1117" }}>
+    <aside className="w-64 flex flex-col h-full" style={{ backgroundColor: "#1A1117" }}>
       {/* Logo / Salon name */}
-      <div className="px-5 py-5 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-        <div className="flex items-center gap-3">
+      <div className="px-5 py-5 border-b flex items-center justify-between" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+        <div className="flex items-center gap-3 min-w-0">
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: "linear-gradient(135deg, #D96B8F 0%, #A33258 100%)" }}
@@ -81,6 +84,15 @@ export function Sidebar({ session }: SidebarProps) {
             </p>
           </div>
         </div>
+        {/* Close button — mobile only */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="md:hidden ml-2 p-1.5 rounded-lg text-white/40 hover:text-white/80 hover:bg-white/10 shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
@@ -109,7 +121,7 @@ export function Sidebar({ session }: SidebarProps) {
 
       {/* User profile */}
       <div className="px-4 py-4 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-        <div className="flex items-center gap-3 px-2 py-2 rounded-xl transition-colors hover:bg-white/[0.04] cursor-default">
+        <div className="flex items-center gap-3 px-2 py-2 rounded-xl">
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
             style={{ backgroundColor: "rgba(196,71,111,0.3)", color: "#E99DB8" }}

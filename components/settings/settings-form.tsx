@@ -18,6 +18,7 @@ type Salon = {
   state: string | null;
   whatsappNumber: string | null;
   whatsappNotifyNew: boolean;
+  whatsappDailySummary: boolean;
   cancellationHours: number;
   workingHours: {
     dayOfWeek: number;
@@ -204,6 +205,7 @@ export function SettingsForm({ salon }: { salon: Salon }) {
         salonId={salon.id}
         initialPhone={salon.whatsappNumber}
         initialNotifyNew={salon.whatsappNotifyNew}
+        initialDailySummary={salon.whatsappDailySummary}
       />
     </div>
   );
